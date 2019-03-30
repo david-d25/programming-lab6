@@ -41,15 +41,14 @@ class RequestResolver implements Runnable {
     public void run() {
         try {
             StringBuilder builder = new StringBuilder();
-            while (clientIn.ready()) {
-                int current = clientIn.read();
-                if (current == -1) break;
-                builder.append((char)current);
-                if (builder.length() > MAX_REQUEST_SIZE) {
-                    sendAndClose("Запрос слишком большой: размер запроса не должен быть больше " + MAX_REQUEST_SIZE/1024/1024 + " МиБ");
-                    return;
-                }
+            long size = Long.parseLong(clientIn.readLine());
+            if (size > MAX_REQUEST_SIZE) {
+                sendAndClose("Запрос слишком большой (" + size/1024/1024 + " МиБ), размер запроса не должен быть больше " + MAX_REQUEST_SIZE/1024/1024 + " МиБ");
+                return;
             }
+
+            for (long i = 0; i < size; i++)
+                builder.append((char)clientIn.read());
 
             String request = builder.toString();
 
@@ -62,6 +61,8 @@ class RequestResolver implements Runnable {
 
         } catch (IOException e) {
             logger.err("Ошибка исполнения запроса: " + e.getMessage());
+        } catch (NumberFormatException e) {
+            sendAndClose("Клиент отправил данные в неверном формате");
         }
     }
 

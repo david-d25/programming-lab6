@@ -1,9 +1,7 @@
 package ru.david.room;
 
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.util.Arrays;
 
 public class FileLoader {
     public static String getFileContent(String filename) throws IOException {
@@ -19,6 +17,18 @@ public class FileLoader {
             } while (current != -1);
 
             return fileContent.toString();
+        }
+    }
+
+    public static byte[] getFileBytes(String filename) throws IOException {
+        try (InputStream inputStream = new FileInputStream(filename)) {
+            File file = new File(filename);
+            byte[] bytes = new byte[(int)file.length()];
+            int read = inputStream.read(bytes);
+            if (read < bytes.length)
+                bytes = Arrays.copyOf(bytes, read);
+
+            return bytes;
         }
     }
 }

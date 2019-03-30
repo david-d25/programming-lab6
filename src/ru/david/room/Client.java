@@ -87,30 +87,27 @@ public class Client {
      * @return результат операции для вывода на экран
      */
     private static String doImport(String filename) {
-        try {
-            String content = FileLoader.getFileContent(filename);
-            System.out.println(content.length());
-            return sendCommand("import " + content);
-        } catch (AccessDeniedException e) {
-            return "Нет доступа для чтения";
-        } catch (FileNotFoundException e) {
-            return "Файл не найден";
-        } catch (IOException e) {
-            return "Ошибка чтения/записи: " + e.getLocalizedMessage();
-        }
-    }
+//        try {
+//            String content = FileLoader.getFileContent(filename);
+//            System.out.println(content.length());
+//            return sendCommand("import " + content);
+//        } catch (AccessDeniedException e) {
+//            return "Нет доступа для чтения";
+//        } catch (FileNotFoundException e) {
+//            return "Файл не найден";
+//        } catch (IOException e) {
+//            return "Ошибка чтения/записи: " + e.getLocalizedMessage();
+//        }
 
-    /**
-     * Отправляет команду на сервер
-     * @param command команда, которую нужно отправить
-     * @return результат операции для вывода на экран
-     */
-    private static String sendCommand(String command) {
         try (Socket socket = new Socket(serverAddress, serverPort)) {
-            InputStreamReader in = new InputStreamReader(socket.getInputStream());
             OutputStream out = socket.getOutputStream();
-            out.write(command.getBytes());
+
+            byte[] bytes = FileLoader.getFileBytes(filename);
+            out.write((bytes.length + "\n").getBytes());
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             StringBuilder builder = new StringBuilder();
+
             while (!socket.isClosed()) {
                 int current = in.read();
                 if (current == -1)
@@ -121,7 +118,36 @@ public class Client {
         } catch (UnknownHostException e) {
             return "Ошибка подключения к серверу: неизвестный хост";
         } catch (IOException e) {
-            return "Ошибка подключения: " + e.getLocalizedMessage();
+            return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
+        }
+    }
+
+    /**
+     * Отправляет команду на сервер
+     * @param command команда, которую нужно отправить
+     * @return результат операции для вывода на экран
+     */
+    private static String sendCommand(String command) {
+        try (Socket socket = new Socket(serverAddress, serverPort)) {
+            OutputStream out = socket.getOutputStream();
+
+            out.write((command.length() + "\n").getBytes());
+            out.write(command.getBytes());
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            StringBuilder builder = new StringBuilder();
+
+            while (!socket.isClosed()) {
+                int current = in.read();
+                if (current == -1)
+                    break;
+                builder.append((char) current);
+            }
+            return builder.toString();
+        } catch (UnknownHostException e) {
+            return "Ошибка подключения к серверу: неизвестный хост";
+        } catch (IOException e) {
+            return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
         }
     }
 
