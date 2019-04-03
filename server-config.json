@@ -1,0 +1,10 @@
+{
+  "port": 8080,
+
+  "max_request_size": 134217728,
+  "max_loggable_request_size": 128,
+  "max_collection_elements": 256,
+
+  "out_log_file": "out.log",
+  "err_log_file": "err.log"
+}
