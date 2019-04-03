@@ -1,16 +1,16 @@
 package ru.david.room.server;
 
 import org.xml.sax.SAXException;
-import ru.david.room.Command;
-import ru.david.room.FileLoader;
+import ru.david.room.*;
 
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
+import java.util.concurrent.atomic.AtomicLong;
 
-import static ru.david.room.server.CreatureFactory.makeCreatureFromJSON;
+import static ru.david.room.CreatureFactory.makeCreatureFromJSON;
 
 class RequestResolver implements Runnable {
 
@@ -22,6 +22,8 @@ class RequestResolver implements Runnable {
     private Hoosegow hoosegow;
     private Socket clientSocket;
     private Logger logger;
+
+    private volatile AtomicLong loadingProgress = new AtomicLong();
 
     RequestResolver(Socket clientSocket, Hoosegow hoosegow, Logger logger) {
         try {
@@ -43,19 +45,30 @@ class RequestResolver implements Runnable {
             StringBuilder builder = new StringBuilder();
             long size = Long.parseLong(clientIn.readLine());
             if (size > MAX_REQUEST_SIZE) {
-                sendAndClose("Запрос слишком большой (" + size/1024/1024 + " МиБ), размер запроса не должен быть больше " + MAX_REQUEST_SIZE/1024/1024 + " МиБ");
+                sendAndClose("Запрос слишком большой (" + optimalInfoUnit(size) + "), размер запроса не должен быть больше " + optimalInfoUnit(MAX_REQUEST_SIZE));
                 return;
             }
 
-            for (long i = 0; i < size; i++)
-                builder.append((char)clientIn.read());
+            new Thread(() -> {
+                try {
+                    Thread.sleep(1000);
+                    while (loadingProgress.longValue() != size) {
+                        Thread.sleep(1500);
+                        clientOut.println("Отправляем запрос... (" + 100 * loadingProgress.longValue() / size + "%)");
+                        clientOut.flush();
+                    }
+                } catch (InterruptedException ignored) {}
+            }).start();
+
+            for (; loadingProgress.longValue() < size; loadingProgress.incrementAndGet())
+                builder.append((char) clientIn.read());
 
             String request = builder.toString();
 
             if (request.length() <= MAX_LOGGABLE_REQUEST_SIZE)
                 logger.log("Запрос от " + clientSocket.getInetAddress() + ": " + request);
             else
-                logger.log("Запрос от " + clientSocket.getInetAddress() + ", размер запроса: " + request.length());
+                logger.log("Запрос от " + clientSocket.getInetAddress() + ", размер запроса: " + optimalInfoUnit(request.length()));
 
             sendAndClose(processRequest(request));
 
@@ -294,5 +307,18 @@ class RequestResolver implements Runnable {
                     return  "Неизвестная команда " + command + "\n" +
                             "Введите \"help\", чтобы узнать, какие есть команды";
         }
+    }
+
+    private static String optimalInfoUnit(long bytes) {
+        String[] units = {"байт", "КиБ", "МиБ", "ГиБ", "ТиБ"};
+        long result = bytes;
+        int divided = 0;
+        while (result > 1024) {
+            result /= 1024;
+            divided++;
+        }
+        if (divided >= units.length)
+            divided = units.length-1;
+        return result + " " + units[divided];
     }
 }

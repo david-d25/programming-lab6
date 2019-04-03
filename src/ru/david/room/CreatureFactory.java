@@ -1,9 +1,9 @@
-package ru.david.room.server;
+package ru.david.room;
 
 import ru.david.room.json.*;
 
 public class CreatureFactory {
-    static Creature makeCreatureFromJSON(String json) throws Exception {
+    public static Creature makeCreatureFromJSON(String json) throws Exception {
         JSONEntity entity;
 
         try {

@@ -1,4 +1,4 @@
-package ru.david.room.server;
+package ru.david.room;
 
 public class CoordinatesOutOfRoomException extends Exception {
     @Override

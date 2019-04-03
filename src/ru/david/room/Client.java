@@ -6,11 +6,15 @@ import ru.david.room.json.JSONObject;
 import ru.david.room.json.JSONParser;
 
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.nio.file.AccessDeniedException;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.HashMap;
 
 public class Client {
     private static final String CONFIG_FILENAME = "client-config.json";
@@ -87,34 +91,27 @@ public class Client {
      * @return результат операции для вывода на экран
      */
     private static String doImport(String filename) {
-//        try {
-//            String content = FileLoader.getFileContent(filename);
-//            System.out.println(content.length());
-//            return sendCommand("import " + content);
-//        } catch (AccessDeniedException e) {
-//            return "Нет доступа для чтения";
-//        } catch (FileNotFoundException e) {
-//            return "Файл не найден";
-//        } catch (IOException e) {
-//            return "Ошибка чтения/записи: " + e.getLocalizedMessage();
-//        }
-
         try (Socket socket = new Socket(serverAddress, serverPort)) {
-            OutputStream out = socket.getOutputStream();
 
-            byte[] bytes = FileLoader.getFileBytes(filename);
-            out.write((bytes.length + "\n").getBytes());
+            String content = FileLoader.getFileContent(filename);
 
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            StringBuilder builder = new StringBuilder();
+            sendCommand("import " + content);
 
-            while (!socket.isClosed()) {
-                int current = in.read();
-                if (current == -1)
-                    break;
-                builder.append((char) current);
-            }
-            return builder.toString();
+//            new Thread(() -> {
+//                try {
+//                    while (!socket.isInputShutdown()) {
+//                        int current = in.read();
+//                        if (current == -1)
+//                            break;
+//                        System.out.print((char) current);
+//                    }
+//                } catch (Exception ignored) {}
+//            }).start();
+
+//            out.write(bytes);
+//            out.flush();
+
+            return "";
         } catch (UnknownHostException e) {
             return "Ошибка подключения к серверу: неизвестный хост";
         } catch (IOException e) {
@@ -123,27 +120,28 @@ public class Client {
     }
 
     /**
-     * Отправляет команду на сервер
+     * Отправляет команду на сервер, результат отправляет в System.out
      * @param command команда, которую нужно отправить
-     * @return результат операции для вывода на экран
+     * @return пустую строку-заглушку.
      */
     private static String sendCommand(String command) {
-        try (Socket socket = new Socket(serverAddress, serverPort)) {
-            OutputStream out = socket.getOutputStream();
+        try (SocketChannel channel = SocketChannel.open()) {
+            channel.connect(new InetSocketAddress(serverAddress, serverPort));
 
-            out.write((command.length() + "\n").getBytes());
-            out.write(command.getBytes());
+            ByteBuffer sendingBuffer = ByteBuffer.allocate(command.getBytes().length + (command.length() + "\n").getBytes().length);
+            sendingBuffer.put((command.length() + "\n").getBytes());
+            sendingBuffer.put(command.getBytes());
+            sendingBuffer.flip();
+            channel.write(sendingBuffer);
 
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            StringBuilder builder = new StringBuilder();
-
-            while (!socket.isClosed()) {
-                int current = in.read();
-                if (current == -1)
-                    break;
-                builder.append((char) current);
+            ByteBuffer receivingBuffer = ByteBuffer.allocate(64);
+            while (channel.read(receivingBuffer) > 0) {
+                receivingBuffer.flip();
+                while (receivingBuffer.hasRemaining())
+                    System.out.write(receivingBuffer.get());
+                receivingBuffer.rewind();
             }
-            return builder.toString();
+            return "";
         } catch (UnknownHostException e) {
             return "Ошибка подключения к серверу: неизвестный хост";
         } catch (IOException e) {

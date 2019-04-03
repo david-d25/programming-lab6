@@ -1,4 +1,3 @@
 build/
 .idea/
-test_big.xml
-test_very_big.xml
+test_*.xml

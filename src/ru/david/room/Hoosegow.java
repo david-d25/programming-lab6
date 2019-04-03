@@ -1,4 +1,4 @@
-package ru.david.room.server;
+package ru.david.room;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -39,16 +39,14 @@ public class Hoosegow {
      * @return количество удалённых существ
      */
     public int removeGreaterThan(Creature creature) {
-        ArrayList<Creature> removingCreatures = new ArrayList<>();
-        for (Creature current : collection) {
-            if (current.compareTo(creature) > 0)
-                removingCreatures.add(current);
-        }
-        for (Creature removing : removingCreatures)
-            collection.remove(removing);
-        if (removingCreatures.size() > 0)
+        int sizeBefore = collection.size();
+        collection.stream()
+                .filter(current -> current.compareTo(creature) > 0)
+                .forEach(current -> collection.remove(current));
+        int removed = sizeBefore - collection.size();
+        if (removed > 0)
             edited = true;
-        return removingCreatures.size();
+        return removed;
     }
 
     /**
@@ -104,7 +102,7 @@ public class Hoosegow {
     /**
      * @return читабельное строковое представление тюряги
      */
-    String getCollectionInfo() {
+    public String getCollectionInfo() {
         return "Тюряга, содержит существ в коллекции типа " + collection.getClass().getName() + ",\n" +
                 "создана " + createdDate + ",\n" +
                 "содержит " + collection.size() + " существ";

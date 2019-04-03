@@ -1,5 +1,7 @@
 package ru.david.room.server;
 
+import ru.david.room.Hoosegow;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -15,7 +17,6 @@ public class Server {
     private static final int PORT = 8080;
 
     private static ServerSocket serverSocket;
-    private static Hoosegow hoosegow;
     private static Logger logger;
 
     public static void main(String[] args) {
@@ -29,7 +30,7 @@ public class Server {
             System.exit(1);
         }
 
-        hoosegow = new Hoosegow();
+        Hoosegow hoosegow = new Hoosegow();
 
         while (true) {
             try {
@@ -52,38 +53,5 @@ public class Server {
             System.err.println("Ошибка записи логов: " + e.getLocalizedMessage());
             System.exit(1);
         }
-    }
-}
-
-class Logger {
-    private PrintStream out;
-    private PrintStream err;
-
-    Logger(PrintStream logsOutput, PrintStream errorsOutput) {
-        this.out = logsOutput;
-        this.err = errorsOutput;
-    }
-
-    void log(String message) {
-        out.println(generateLogTime() + message);
-        out.flush();
-    }
-
-    void err(String message) {
-        err.println(generateLogTime() + "ERROR: " + message);
-        err.flush();
-    }
-
-    private String generateLogTime() {
-        Calendar calendar = GregorianCalendar.getInstance();
-        calendar.setTime(new Date());
-        return String.format("[%02d.%02d.%s %02d:%02d:%02d] ",
-                calendar.get(Calendar.DATE),
-                calendar.get(Calendar.MONTH)+1,
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.HOUR_OF_DAY),
-                calendar.get(Calendar.MINUTE),
-                calendar.get(Calendar.SECOND)
-        );
     }
 }

@@ -1,9 +1,10 @@
-package ru.david.room.server;
+package ru.david.room;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Objects;
 
-class Creature extends PhysicalObject implements Comparable<Creature> {
+public class Creature extends PhysicalObject implements Comparable<Creature> {
     private String name = "Безымянный";
     private Date createdDate = new Date();
 
@@ -43,7 +44,14 @@ class Creature extends PhysicalObject implements Comparable<Creature> {
 
     @Override
     public String toString() {
-        return String.format("Существо по имени %s, координаты: (%s; %s), размер: %s x %s", name, getX(), getY(), getWidth(), getHeight());
+        return String.format("Существо по имени %s, координаты: (%s; %s), размер: %s x %s, создано %s",
+                name,
+                getX(),
+                getY(),
+                getWidth(),
+                getHeight(),
+                new SimpleDateFormat("hh:mm aa, dd.MM.yyyy").format(createdDate)
+        );
     }
 
     public int getCoolness() {

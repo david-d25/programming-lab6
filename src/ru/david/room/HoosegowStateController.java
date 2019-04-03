@@ -1,4 +1,4 @@
-package ru.david.room.server;
+package ru.david.room;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -15,8 +15,8 @@ import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.util.Date;
 
-class HoosegowStateController {
-    static void loadState(Hoosegow hoosegow, String xml) throws ParserConfigurationException, IOException, SAXException {
+public class HoosegowStateController {
+    public static void loadState(Hoosegow hoosegow, String xml) throws ParserConfigurationException, IOException, SAXException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder;
 
@@ -41,6 +41,7 @@ class HoosegowStateController {
             NodeList current = nodes.item(a).getChildNodes();
 
             Integer x = null, y = null, width = null, height = null;
+            Long created = null;
             String name = null;
 
             for (int b = 0; b < current.getLength(); b++) {
@@ -61,6 +62,13 @@ class HoosegowStateController {
                             y = Integer.parseInt(property.getTextContent());
                         } catch (NumberFormatException e) {
                             throw new SAXException("<y> в <creature> должен хранить целое число");
+                        }
+                        break;
+                    case "created":
+                        try {
+                            created = Long.parseLong(property.getTextContent());
+                        } catch (NumberFormatException e) {
+                            throw new SAXException("<created> в <creature> должен хранить целое число (long)");
                         }
                         break;
                     case "width":
@@ -94,6 +102,8 @@ class HoosegowStateController {
                 creature.setHeight(height);
             if (name != null)
                 creature.setName(name);
+            if (created != null)
+                creature.setCreatedDate(new Date(created));
 
             hoosegow.add(creature);
         }
@@ -108,7 +118,7 @@ class HoosegowStateController {
         return false;
     }
 
-    static void saveState(Hoosegow hoosegow, OutputStreamWriter writer) throws IOException {
+    public static void saveState(Hoosegow hoosegow, OutputStreamWriter writer) throws IOException {
         writer.write("<?xml version=\"1.0\"?>\n");
         writer.write("<state>\n");
         writer.write("  <timestamp>" + hoosegow.getCreatedDate().getTime() + "</timestamp>\n");
@@ -116,12 +126,13 @@ class HoosegowStateController {
             writer.write("  <creature>\n");
             writer.write("    <x>" + creature.getX() + "</x>\n");
             writer.write("    <y>" + creature.getY() + "</y>\n");
+            writer.write("    <created>" + creature.getCreatedDate().getTime() + "</created>\n");
             writer.write("    <width>" + creature.getWidth() + "</width>\n");
             writer.write("    <height>" + creature.getHeight() + "</height>\n");
             writer.write("    <name>" + creature.getName() + "</name>\n");
             writer.write("  </creature>\n");
         }
         writer.write("</state>\n");
-        writer.flush();
+        writer.close();
     }
 }

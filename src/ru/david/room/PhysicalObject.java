@@ -1,4 +1,4 @@
-package ru.david.room.server;
+package ru.david.room;
 
 class PhysicalObject {
     private int x, y, width, height;
