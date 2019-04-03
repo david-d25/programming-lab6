@@ -14,8 +14,8 @@ import static ru.david.room.CreatureFactory.makeCreatureFromJSON;
 
 class RequestResolver implements Runnable {
 
-    private static final long MAX_REQUEST_SIZE = 268435456;
-    private static final long MAX_LOGGABLE_REQUEST_SIZE = 128;
+    private static long maxRequestSize = 268435456;
+    private static long maxLoggableRequestSize = 128;
 
     private PrintWriter clientOut;
     private BufferedReader clientIn;
@@ -44,8 +44,8 @@ class RequestResolver implements Runnable {
         try {
             StringBuilder builder = new StringBuilder();
             long size = Long.parseLong(clientIn.readLine());
-            if (size > MAX_REQUEST_SIZE) {
-                sendAndClose("Запрос слишком большой (" + optimalInfoUnit(size) + "), размер запроса не должен быть больше " + optimalInfoUnit(MAX_REQUEST_SIZE));
+            if (size > maxRequestSize) {
+                sendAndClose("Запрос слишком большой (" + optimalInfoUnit(size) + "), размер запроса не должен быть больше " + optimalInfoUnit(maxRequestSize));
                 return;
             }
 
@@ -65,7 +65,7 @@ class RequestResolver implements Runnable {
 
             String request = builder.toString();
 
-            if (request.length() <= MAX_LOGGABLE_REQUEST_SIZE)
+            if (request.length() <= maxLoggableRequestSize)
                 logger.log("Запрос от " + clientSocket.getInetAddress() + ": " + request);
             else
                 logger.log("Запрос от " + clientSocket.getInetAddress() + ", размер запроса: " + optimalInfoUnit(request.length()));
@@ -79,11 +79,20 @@ class RequestResolver implements Runnable {
         }
     }
 
+    /**
+     * Отправляет данные в поток вывода и закрывает поток
+     * @param content данные, которые нужно отправить
+     */
     private void sendAndClose(String content) {
         clientOut.println(content);
         clientOut.close();
     }
 
+    /**
+     * Обрабатывает запрос
+     * @param request запрос
+     * @return результат обработки
+     */
     private String processRequest(String request) {
         if (request == null)
             return "Задан пустой запрос";
@@ -138,6 +147,8 @@ class RequestResolver implements Runnable {
                     return "Ошибка чтения/записи";
                 } catch (SAXException | ParserConfigurationException e) {
                     return "Ошибка обработки файла: " + e.getLocalizedMessage();
+                } catch (HoosegowOverflowException e) {
+                    return "В тюряге не осталось места, некоторые существа загрузились";
                 }
 
             case "import":
@@ -154,6 +165,8 @@ class RequestResolver implements Runnable {
                     return "Ошибка чтения/записи";
                 } catch (SAXException | ParserConfigurationException e) {
                     return "Ошибка обработки файла: " + e.getLocalizedMessage();
+                } catch (HoosegowOverflowException e) {
+                    return "В тюряге не остмалось места, некоторые существа не загрузились";
                 }
 
             case "remove_last":
@@ -167,6 +180,10 @@ class RequestResolver implements Runnable {
                         return helpFor(command.name);
                     hoosegow.add(makeCreatureFromJSON(command.argument));
                     return "Существо добавлено в тюрягу";
+                } catch (HoosegowOverflowException e) {
+                    return  "Недостаточно места в тюряге. " +
+                            "В тюрягу может поместиться не больше " + Hoosegow.getMaxCollectionElements() + " существ.\n" +
+                            "Попробуйте удалить кого-то, чтобы освободить место.";
                 } catch (Exception e) {
                     return "Не получилось создать существо: " + e.getMessage();
                 }
@@ -211,6 +228,11 @@ class RequestResolver implements Runnable {
         }
     }
 
+    /**
+     * Возвращает инструкции к команде
+     * @param command команда, для которой нужна инструкция
+     * @return инструкция к указанной команде
+     */
     private static String helpFor(String command) {
         switch (command) {
             case "help":
@@ -309,7 +331,13 @@ class RequestResolver implements Runnable {
         }
     }
 
-    private static String optimalInfoUnit(long bytes) {
+    /**
+     * Возвращает количество информации в читабельном виде.
+     * Например, при входных данных 134217728, возвращает "128 МиБ"
+     * @param bytes Количество информации в байтах
+     * @return Читабельное представление информации
+     */
+    static String optimalInfoUnit(long bytes) {
         String[] units = {"байт", "КиБ", "МиБ", "ГиБ", "ТиБ"};
         long result = bytes;
         int divided = 0;
@@ -320,5 +348,38 @@ class RequestResolver implements Runnable {
         if (divided >= units.length)
             divided = units.length-1;
         return result + " " + units[divided];
+    }
+
+    /**
+     * @return Максимальный размер запроса в байтах
+     */
+    public static long getMaxRequestSize() {
+        return maxRequestSize;
+    }
+
+    /**
+     * Задаёт максимальный размер запроса
+     * @param maxRequestSize максимальный размер запроса в байтах
+     */
+    public static void setMaxRequestSize(long maxRequestSize) {
+        RequestResolver.maxRequestSize = maxRequestSize;
+    }
+
+    /**
+     * Получает максимальный размер запроса, содержимое которого отобразится в локах.
+     * Если размер запроса превысит данное значение, вместо сожержимого в локах будет указан размер запроса.
+     * @return Максимальный размер логгируемого содержимого запроса
+     */
+    public static long getMaxLoggableRequestSize() {
+        return maxLoggableRequestSize;
+    }
+
+    /**
+     * Устанавливает максимальный размер запроса, содержимое которого отобразится в локах.
+     * Если размер запроса превысит данное значение, вместо сожержимого в локах будет указан размер запроса.
+     * @param maxLoggableRequestSize Максимальный размер логгируемого содержимого запроса
+     */
+    public static void setMaxLoggableRequestSize(long maxLoggableRequestSize) {
+        RequestResolver.maxLoggableRequestSize = maxLoggableRequestSize;
     }
 }

@@ -11,20 +11,23 @@ public class Hoosegow {
     private PriorityBlockingQueue<Creature> collection = new PriorityBlockingQueue<>();
     private Date createdDate = new Date();
     private boolean edited = false;
+    private static int maxCollectionElements = 256;
 
     /**
      * Добавляет существо в тюрягу
      * @param creature существо, которое надо добавить
      */
     public void add(Creature creature) {
+        if (collection.size() >= maxCollectionElements)
+            throw new HoosegowOverflowException();
         collection.add(creature);
         edited = true;
     }
 
     /**
      * Удаляет существо из тюряги
-     * @param creature существо, которое надо удалить
-     * @return true, если удаление произошло
+     * @param creature Существо, которое надо удалить
+     * @return True, если удаление произошло
      */
     public boolean remove(Creature creature) {
         if (!collection.contains(creature))
@@ -35,8 +38,8 @@ public class Hoosegow {
 
     /**
      * Удаляет каждое существо, если оно круче, чем указанное
-     * @param creature существо, с которым произоёдет сравнение
-     * @return количество удалённых существ
+     * @param creature Существо, с которым произоёдет сравнение
+     * @return Количество удалённых существ
      */
     public int removeGreaterThan(Creature creature) {
         int sizeBefore = collection.size();
@@ -51,7 +54,7 @@ public class Hoosegow {
 
     /**
      * Удаляет последнее существо тюряги. Если тюряга пуста, возвращает null.
-     * @return удалённое существо
+     * @return Удалённое существо
      */
     public Creature removeLast() {
         PriorityBlockingQueue<Creature> NewQueue = new PriorityBlockingQueue<>();
@@ -65,29 +68,48 @@ public class Hoosegow {
     }
 
     /**
-     * @return коллекцию существ
+     * @return Коллекцию существ
      */
     public PriorityBlockingQueue<Creature> getCollection() {
         return collection;
     }
 
+    /**
+     * @return Размер коллекции
+     */
     public int getSize() {
         return collection.size();
     }
 
+    /**
+     * Устанавливает время создания тюряги
+     * @param createdDate Время создания тюряги
+     */
     public void setCreatedDate(Date createdDate) {
         this.createdDate = createdDate;
         edited = true;
     }
 
+    /**
+     * Возвращает время создания тюряги
+     * @return Время создания тюряги
+     */
     public Date getCreatedDate() {
         return createdDate;
     }
 
+    /**
+     * @return True, если тюряга изменилась
+     */
     public boolean isEdited() {
         return edited;
     }
 
+    /**
+     * Устанавливает факт изменённости тюряги. Установите значение true,
+     * чтобы обозначить, что тюряга была изменена
+     * @param edited факт изменйнности тюряги
+     */
     public void setEdited(boolean edited) {
         this.edited = edited;
     }
@@ -97,6 +119,28 @@ public class Hoosegow {
      */
     public void clear() {
         collection.clear();
+    }
+
+    /**
+     * @return Максимальное количество существ, которые могут поместиться в тюрягу
+     */
+    public static int getMaxCollectionElements() {
+        return maxCollectionElements;
+    }
+
+    /**
+     * Задаёт максимально количество существ, которые поместятся в тюрягу
+     * @param maxCollectionElements количество существ
+     */
+    public static void setMaxCollectionElements(int maxCollectionElements) {
+        Hoosegow.maxCollectionElements = maxCollectionElements;
+    }
+
+    /**
+     * @return Количество свободного пространства в тюряге
+     */
+    public int getAvailableSpace() {
+        return maxCollectionElements - this.getSize();
     }
 
     /**

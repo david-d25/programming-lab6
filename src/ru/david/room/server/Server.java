@@ -1,30 +1,33 @@
 package ru.david.room.server;
 
+import ru.david.room.FileLoader;
 import ru.david.room.Hoosegow;
+import ru.david.room.json.JSONEntity;
+import ru.david.room.json.JSONNumber;
+import ru.david.room.json.JSONObject;
+import ru.david.room.json.JSONParser;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
 
 public class Server {
-    private static final String OUT_LOG_FILE = "out.log";
-    private static final String ERR_LOG_FILE = "err.log";
-    private static final int PORT = 8080;
+    private static final String CONFIG_FILENAME = "server-config.json";
+    private static String outLogFile = "out.log";
+    private static String errLogFile = "err.log";
+    private static int port = 8080;
 
     private static ServerSocket serverSocket;
     private static Logger logger;
 
     public static void main(String[] args) {
+        loadConfig();
+
         initLogger();
 
         try {
-            serverSocket = new ServerSocket(PORT);
-            logger.log("Сервер запущен и слушает порт " + PORT + "...");
+            serverSocket = new ServerSocket(port);
+            logger.log("Сервер запущен и слушает порт " + port + "...");
         } catch (IOException e) {
             logger.err("Ошибка создания серверного сокета (" + e.getLocalizedMessage() + "), приложение будет остановлено.");
             System.exit(1);
@@ -43,15 +46,109 @@ public class Server {
         }
     }
 
+    /**
+     * Инициализирует логгер для сервера
+     */
     private static void initLogger() {
         try {
             logger = new Logger(
-                    new PrintStream(new TeeOutputStream(System.out, new FileOutputStream(OUT_LOG_FILE))),
-                    new PrintStream(new TeeOutputStream(System.err, new FileOutputStream(ERR_LOG_FILE)))
+                    new PrintStream(new TeeOutputStream(System.out, new FileOutputStream(outLogFile))),
+                    new PrintStream(new TeeOutputStream(System.err, new FileOutputStream(errLogFile)))
             );
         } catch (IOException e) {
             System.err.println("Ошибка записи логов: " + e.getLocalizedMessage());
             System.exit(1);
+        }
+    }
+
+    /**
+     * Загружает настройки сервера
+     */
+    private static void loadConfig() {
+        System.out.println("Загрузка настроек...");
+        try {
+            String configContent = FileLoader.getFileContent(CONFIG_FILENAME);
+
+            JSONObject object = JSONParser.parse(configContent).toObject(
+                    "Файл должен содержать json-объект"
+            );
+
+            JSONEntity maxRequestSizeEntity = object.getItem("max_request_size");
+            if (maxRequestSizeEntity != null) {
+                RequestResolver.setMaxRequestSize(
+                        (long)maxRequestSizeEntity.toNumber(
+                        "Макс. размер запроса (max_request_size) должен быть числом, но это " + maxRequestSizeEntity.getTypeName()
+                        ).getValue()
+                );
+                System.out.println("Задан макс. размер запроса: " + RequestResolver.optimalInfoUnit(RequestResolver.getMaxRequestSize()));
+            } else
+                System.out.println("Используется макс. размер запроса по умолчанию: " + RequestResolver.optimalInfoUnit(RequestResolver.getMaxRequestSize()));
+
+            JSONEntity maxLoggableRequestSize = object.getItem("max_loggable_request_size");
+            if (maxLoggableRequestSize != null) {
+                RequestResolver.setMaxLoggableRequestSize(
+                        (long)maxLoggableRequestSize.toNumber(
+                                "Макс. размер логгируемого запроса (max_loggable_request_size) должен быть числом, но это " + maxLoggableRequestSize.getTypeName()
+                        ).getValue()
+                );
+                System.out.println("Задан макс. размер логгируемого запроса: " + RequestResolver.optimalInfoUnit(RequestResolver.getMaxLoggableRequestSize()));
+            } else
+                System.out.println("Используется макс. размер логгируемого запроса по умолчанию: " + RequestResolver.optimalInfoUnit(RequestResolver.getMaxLoggableRequestSize()));
+
+            JSONEntity maxCollectionElements = object.getItem("max_collection_elements");
+            if (maxCollectionElements != null) {
+                Hoosegow.setMaxCollectionElements(
+                        (int)maxCollectionElements.toNumber(
+                                "Макс. количество существ (max_collection_elements) должно быть числом, но это " + maxCollectionElements.getTypeName()
+                        ).getValue()
+                );
+                System.out.println("Задано макс. количество существ: " + Hoosegow.getMaxCollectionElements());
+            } else
+                System.out.println("Используется макс. количество существ по умолчанию: " + Hoosegow.getMaxCollectionElements());
+
+            JSONEntity outLogFileEntity = object.getItem("out_log_file");
+            if (outLogFileEntity != null) {
+                outLogFile = outLogFileEntity.toString(
+                        "Имя файла стандартного вывоа (out_log_file) должно быть строкой, но это " + outLogFileEntity.getTypeName()
+                        ).getContent();
+                System.out.println("Задано имя файла стандартного вывода: " + outLogFile);
+            } else
+                System.out.println("Используется имя файла стандартного вывода по умолчанию: " + outLogFile);
+
+            JSONEntity outErrFileEntity = object.getItem("out_err_file");
+            if (outErrFileEntity != null) {
+                outLogFile = outErrFileEntity.toString(
+                        "Имя файла вывода ошибок (out_err_file) должно быть строкой, но это " + outErrFileEntity.getTypeName()
+                ).getContent();
+                System.out.println("Задано имя файла вывода ошибок: " + errLogFile);
+            } else
+                System.out.println("Используется имя файла вывода ошибок по умолчанию: " + errLogFile);
+
+            JSONEntity portEntity = object.getItem("port");
+            if (portEntity != null) {
+                JSONNumber number = portEntity.toNumber(
+                        "Порт сервера должен быть числом, но это " + portEntity.getTypeName()
+                );
+
+                double port = number.getValue();
+                if (port < 0 || port > 65535)
+                    System.err.println("Порт сервера должен быть целым числом от 0 до 65535");
+                else {
+                    port = (int)port;
+                    System.out.println("Задан порт сервера: " + (int)port);
+                }
+            } else
+                System.out.println("Используется порт сервера по умолчанию: " + (int)port);
+
+            System.out.println();
+
+        } catch (FileNotFoundException e) {
+            System.out.println("Файл настроек не найден, для задания настроек используйте файл " + CONFIG_FILENAME);
+        } catch (IOException e) {
+            System.err.println("Ошибка чтения файла настроек: " + e.getLocalizedMessage());
+        } catch (Exception e) {
+            System.err.print("Настройки не загружены: ");
+            System.err.println(e.getMessage());
         }
     }
 }

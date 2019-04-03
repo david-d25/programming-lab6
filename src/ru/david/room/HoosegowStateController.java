@@ -16,6 +16,15 @@ import java.io.StringReader;
 import java.util.Date;
 
 public class HoosegowStateController {
+    /**
+     * Загружает состояние тюряги из указанной строки. Строка должна содержать состояние в формате XML.
+     * Обратите внимание, что имеющиеся существа не удаляются из тюряги.
+     * @param hoosegow тюряга, в которую надо загрузить состояние
+     * @param xml строка, содержащая состояние в формате XML
+     * @throws ParserConfigurationException Если произойдёт ошибка парсинга
+     * @throws IOException Если произойдёт ошиька ввода-вывода
+     * @throws SAXException Если произойдёт какая-то другая ошибка парсинга
+     */
     public static void loadState(Hoosegow hoosegow, String xml) throws ParserConfigurationException, IOException, SAXException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder;
@@ -109,7 +118,12 @@ public class HoosegowStateController {
         }
     }
 
-    public static boolean hasChildElements(Node el) {
+    /**
+     * Возвращает true, если элемент XML имеет внутри ещё элементы
+     * @param el элемент XML
+     * @return true, если указанный элемент содержит ещё элементы
+     */
+    private static boolean hasChildElements(Node el) {
         NodeList children = el.getChildNodes();
         for (int i = 0;i < children.getLength();i++) {
             if (children.item(i).getNodeType() == Node.ELEMENT_NODE)
@@ -118,6 +132,12 @@ public class HoosegowStateController {
         return false;
     }
 
+    /**
+     * Сохраняет состояние тюряги в поток в формате XML
+     * @param hoosegow тюряга, состояние которой надо сохранить
+     * @param writer поток, в который будет записано состояние в формате XML
+     * @throws IOException если произойдёт ошибка чтения-записи
+     */
     public static void saveState(Hoosegow hoosegow, OutputStreamWriter writer) throws IOException {
         writer.write("<?xml version=\"1.0\"?>\n");
         writer.write("<state>\n");
