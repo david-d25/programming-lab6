@@ -6,15 +6,12 @@ import ru.david.room.json.JSONObject;
 import ru.david.room.json.JSONParser;
 
 import java.io.*;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-import java.util.HashMap;
+import java.nio.file.AccessDeniedException;
 
 public class Client {
     private static final String CONFIG_FILENAME = "client-config.json";
@@ -91,29 +88,14 @@ public class Client {
      * @return результат операции для вывода на экран
      */
     private static String doImport(String filename) {
-        try (Socket socket = new Socket(serverAddress, serverPort)) {
-
+        try {
             String content = FileLoader.getFileContent(filename);
-
             sendCommand("import " + content);
-
-//            new Thread(() -> {
-//                try {
-//                    while (!socket.isInputShutdown()) {
-//                        int current = in.read();
-//                        if (current == -1)
-//                            break;
-//                        System.out.print((char) current);
-//                    }
-//                } catch (Exception ignored) {}
-//            }).start();
-
-//            out.write(bytes);
-//            out.flush();
-
             return "";
-        } catch (UnknownHostException e) {
-            return "Ошибка подключения к серверу: неизвестный хост";
+        } catch (FileNotFoundException e) {
+            return "Нет такого файла";
+        } catch (AccessDeniedException e) {
+            return "Нет доступа к файлу";
         } catch (IOException e) {
             return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
         }
@@ -132,20 +114,33 @@ public class Client {
             sendingBuffer.put((command.length() + "\n").getBytes());
             sendingBuffer.put(command.getBytes());
             sendingBuffer.flip();
-            channel.write(sendingBuffer);
+            new Thread(() -> {
+                try {
+                    channel.write(sendingBuffer);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }).start();
 
-            ByteBuffer receivingBuffer = ByteBuffer.allocate(64);
+            //import test_medium.xml
+
+            ByteBuffer receivingBuffer = ByteBuffer.allocate(256);
             while (channel.read(receivingBuffer) > 0) {
                 receivingBuffer.flip();
                 while (receivingBuffer.hasRemaining())
                     System.out.write(receivingBuffer.get());
                 receivingBuffer.rewind();
             }
+
             return "";
         } catch (UnknownHostException e) {
             return "Ошибка подключения к серверу: неизвестный хост";
+        } catch (SecurityException e) {
+            return "Нет разрешения на подключение";
+        } catch (ConnectException e) {
+            return "Не удалось соединиться с сервером, причина: " + e.getLocalizedMessage();
         } catch (IOException e) {
-            return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
+            return "Ошибка ввода-вывода: " + e;
         }
     }
 

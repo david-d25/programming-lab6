@@ -45,30 +45,33 @@ class RequestResolver implements Runnable {
             StringBuilder builder = new StringBuilder();
             long size = Long.parseLong(clientIn.readLine());
             if (size > maxRequestSize) {
-                sendAndClose("Запрос слишком большой (" + optimalInfoUnit(size) + "), размер запроса не должен быть больше " + optimalInfoUnit(maxRequestSize));
+                sendAndClose("Запрос слишком большой (" + Utils.optimalInfoUnit(size) + "), размер запроса не должен быть больше " + Utils.optimalInfoUnit(maxRequestSize));
                 return;
             }
 
-            new Thread(() -> {
+            Thread pleaseWaitMessage = new Thread(() -> {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(500);
                     while (loadingProgress.longValue() != size) {
-                        Thread.sleep(1500);
-                        clientOut.println("Отправляем запрос... (" + 100 * loadingProgress.longValue() / size + "%)");
+                        Thread.sleep(750);
+                        clientOut.print("Отправляем запрос... " + Math.round((1000f * loadingProgress.longValue() / size)/10) + "\r");
                         clientOut.flush();
                     }
                 } catch (InterruptedException ignored) {}
-            }).start();
+            });
+            pleaseWaitMessage.start();
 
             for (; loadingProgress.longValue() < size; loadingProgress.incrementAndGet())
                 builder.append((char) clientIn.read());
+
+            pleaseWaitMessage.interrupt();
 
             String request = builder.toString();
 
             if (request.length() <= maxLoggableRequestSize)
                 logger.log("Запрос от " + clientSocket.getInetAddress() + ": " + request);
             else
-                logger.log("Запрос от " + clientSocket.getInetAddress() + ", размер запроса: " + optimalInfoUnit(request.length()));
+                logger.log("Запрос от " + clientSocket.getInetAddress() + ", размер запроса: " + Utils.optimalInfoUnit(request.length()));
 
             sendAndClose(processRequest(request));
 
@@ -119,10 +122,14 @@ class RequestResolver implements Runnable {
                     return  "Имя не указано.\n" +
                             "Введите \"help save\", чтобы узнать, как пользоваться командой";
                 try {
+                    PleaseWaitMessage message = new PleaseWaitMessage(clientOut,
+                            "Ваш запрос в процессе обработки. Пожалуйста, подождите...",
+                            2000);
                     HoosegowStateController.saveState(
                             hoosegow,
                             new OutputStreamWriter(new FileOutputStream(command.argument), StandardCharsets.UTF_8)
                     );
+                    message.clear();
                     return "Сохранение успешно, господин";
                 } catch (IOException e) {
                     return "Ошибка чтения/записи";
@@ -133,11 +140,15 @@ class RequestResolver implements Runnable {
                     return  "Имя не указано.\n" +
                             "Введите \"help load\", чтобы узнать, как пользоваться командой";
                 try {
+                    PleaseWaitMessage message = new PleaseWaitMessage(clientOut,
+                            "Ваш запрос в процессе обработки. Пожалуйста, подождите...",
+                            2000);
                     hoosegow.clear();
                     HoosegowStateController.loadState(
                             hoosegow,
                             FileLoader.getFileContent(command.argument)
                     );
+                    message.clear();
                     return "Загрузка успешна! В тюряге " + hoosegow.getSize() + " существ";
                 } catch (AccessDeniedException e) {
                     return "Нет доступа для чтения";
@@ -156,10 +167,14 @@ class RequestResolver implements Runnable {
                     return  "Имя не указано.\n" +
                             "Введите \"help import\", чтобы узнать, как пользоваться командой";
                 try {
+                    PleaseWaitMessage message = new PleaseWaitMessage(clientOut,
+                            "Ваш запрос в процессе обработки. Пожалуйста, подождите...",
+                            2000);
                     HoosegowStateController.loadState(
                             hoosegow,
                             command.argument
                     );
+                    message.clear();
                     return "Загрузка успешна! В тюряге " + hoosegow.getSize() + " существ";
                 } catch (IOException e) {
                     return "Ошибка чтения/записи";
@@ -332,28 +347,9 @@ class RequestResolver implements Runnable {
     }
 
     /**
-     * Возвращает количество информации в читабельном виде.
-     * Например, при входных данных 134217728, возвращает "128 МиБ"
-     * @param bytes Количество информации в байтах
-     * @return Читабельное представление информации
-     */
-    static String optimalInfoUnit(long bytes) {
-        String[] units = {"байт", "КиБ", "МиБ", "ГиБ", "ТиБ"};
-        long result = bytes;
-        int divided = 0;
-        while (result > 1024) {
-            result /= 1024;
-            divided++;
-        }
-        if (divided >= units.length)
-            divided = units.length-1;
-        return result + " " + units[divided];
-    }
-
-    /**
      * @return Максимальный размер запроса в байтах
      */
-    public static long getMaxRequestSize() {
+    static long getMaxRequestSize() {
         return maxRequestSize;
     }
 
@@ -361,7 +357,7 @@ class RequestResolver implements Runnable {
      * Задаёт максимальный размер запроса
      * @param maxRequestSize максимальный размер запроса в байтах
      */
-    public static void setMaxRequestSize(long maxRequestSize) {
+    static void setMaxRequestSize(long maxRequestSize) {
         RequestResolver.maxRequestSize = maxRequestSize;
     }
 
@@ -370,7 +366,7 @@ class RequestResolver implements Runnable {
      * Если размер запроса превысит данное значение, вместо сожержимого в локах будет указан размер запроса.
      * @return Максимальный размер логгируемого содержимого запроса
      */
-    public static long getMaxLoggableRequestSize() {
+    static long getMaxLoggableRequestSize() {
         return maxLoggableRequestSize;
     }
 
@@ -379,7 +375,7 @@ class RequestResolver implements Runnable {
      * Если размер запроса превысит данное значение, вместо сожержимого в локах будет указан размер запроса.
      * @param maxLoggableRequestSize Максимальный размер логгируемого содержимого запроса
      */
-    public static void setMaxLoggableRequestSize(long maxLoggableRequestSize) {
+    static void setMaxLoggableRequestSize(long maxLoggableRequestSize) {
         RequestResolver.maxLoggableRequestSize = maxLoggableRequestSize;
     }
 }

@@ -9,7 +9,7 @@ public class CreatureFactory {
         try {
             entity = JSONParser.parse(json);
         } catch (JSONParseException e) {
-            throw new JSONParseException("Не удалось обработать этот json:\n" + e);
+            throw new JSONParseException(e.getMessage());
         }
 
         if (entity == null)

@@ -2,6 +2,7 @@ package ru.david.room.server;
 
 import ru.david.room.FileLoader;
 import ru.david.room.Hoosegow;
+import ru.david.room.Utils;
 import ru.david.room.json.JSONEntity;
 import ru.david.room.json.JSONNumber;
 import ru.david.room.json.JSONObject;
@@ -80,9 +81,9 @@ public class Server {
                         "Макс. размер запроса (max_request_size) должен быть числом, но это " + maxRequestSizeEntity.getTypeName()
                         ).getValue()
                 );
-                System.out.println("Задан макс. размер запроса: " + RequestResolver.optimalInfoUnit(RequestResolver.getMaxRequestSize()));
+                System.out.println("Задан макс. размер запроса: " + Utils.optimalInfoUnit(RequestResolver.getMaxRequestSize()));
             } else
-                System.out.println("Используется макс. размер запроса по умолчанию: " + RequestResolver.optimalInfoUnit(RequestResolver.getMaxRequestSize()));
+                System.out.println("Используется макс. размер запроса по умолчанию: " + Utils.optimalInfoUnit(RequestResolver.getMaxRequestSize()));
 
             JSONEntity maxLoggableRequestSize = object.getItem("max_loggable_request_size");
             if (maxLoggableRequestSize != null) {
@@ -91,9 +92,9 @@ public class Server {
                                 "Макс. размер логгируемого запроса (max_loggable_request_size) должен быть числом, но это " + maxLoggableRequestSize.getTypeName()
                         ).getValue()
                 );
-                System.out.println("Задан макс. размер логгируемого запроса: " + RequestResolver.optimalInfoUnit(RequestResolver.getMaxLoggableRequestSize()));
+                System.out.println("Задан макс. размер логгируемого запроса: " + Utils.optimalInfoUnit(RequestResolver.getMaxLoggableRequestSize()));
             } else
-                System.out.println("Используется макс. размер логгируемого запроса по умолчанию: " + RequestResolver.optimalInfoUnit(RequestResolver.getMaxLoggableRequestSize()));
+                System.out.println("Используется макс. размер логгируемого запроса по умолчанию: " + Utils.optimalInfoUnit(RequestResolver.getMaxLoggableRequestSize()));
 
             JSONEntity maxCollectionElements = object.getItem("max_collection_elements");
             if (maxCollectionElements != null) {

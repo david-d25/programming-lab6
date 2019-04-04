@@ -72,8 +72,7 @@ public class Creature extends PhysicalObject implements Comparable<Creature> {
                 c.getX() == getX() &&
                 c.getY() == getY() &&
                 c.getWidth() == getWidth() &&
-                c.getHeight() == getHeight() &&
-                c.getCreatedDate().equals(getCreatedDate());
+                c.getHeight() == getHeight();
     }
 
     @Override
