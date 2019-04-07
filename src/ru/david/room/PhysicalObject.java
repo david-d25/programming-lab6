@@ -1,6 +1,8 @@
 package ru.david.room;
 
-class PhysicalObject {
+import java.io.Serializable;
+
+class PhysicalObject implements Serializable {
     private int x, y, width, height;
 
     PhysicalObject(int x, int y) {
