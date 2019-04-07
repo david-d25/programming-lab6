@@ -12,6 +12,7 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.nio.file.AccessDeniedException;
+import java.util.LinkedList;
 
 public class Client {
     private static final String CONFIG_FILENAME = "client-config.json";
@@ -69,6 +70,9 @@ public class Client {
             case "exit":
                 System.exit(0);
 
+            case "show":
+                return doShow();
+
             case "multiline":
                 multiline = !multiline;
                 return "Многострочные команды " + (multiline ? "включены. Используйте ';' для завешения команды." : "выключены");
@@ -83,9 +87,49 @@ public class Client {
     }
 
     /**
+     * Выполняет команлу show, вывод отправляет в System.out
+     * @return пустую строку или сообщение об ошибке, если есть
+     */
+    private static String doShow() {
+        try (SocketChannel channel = SocketChannel.open()) {
+            channel.connect(new InetSocketAddress(serverAddress, serverPort));
+            byte[] command = "show".getBytes();
+
+            ByteBuffer sendingBuffer = ByteBuffer.allocate(command.length + (command.length + "\n").getBytes().length);
+            sendingBuffer.put((command.length + "\n").getBytes());
+            sendingBuffer.put(command);
+            sendingBuffer.flip();
+            channel.write(sendingBuffer);
+
+            ObjectInputStream stream = new ObjectInputStream(channel.socket().getInputStream());
+            System.out.println("Существа в тюряге:");
+            while (!channel.socket().isClosed()) {
+                Object current = stream.readObject();
+                if (current instanceof String)
+                    System.out.println((String)current);
+                else if (current instanceof Creature)
+                    System.out.println(current.toString());
+            }
+            return "";
+        } catch (UnknownHostException e) {
+            return "Ошибка подключения к серверу: неизвестный хост";
+        } catch (SecurityException e) {
+            return "Нет разрешения на подключение";
+        } catch (ConnectException e) {
+            return "Не удалось соединиться с сервером, причина: " + e.getLocalizedMessage();
+        } catch (EOFException e) {
+            return "";
+        } catch (IOException e) {
+            return "Ошибка ввода-вывода: " + e;
+        } catch (ClassNotFoundException e) {
+            return "Сервер отпавил класс, который не может прочитать клиент";
+        }
+    }
+
+    /**
      * Формирует команду import и отправляет на сервер
      * @param filename имя файла, содержимое которого будет отправлено
-     * @return результат операции для вывода на экран
+     * @return пустую строку или сообщение об ошибке, если есть
      */
     private static String doImport(String filename) {
         try {
