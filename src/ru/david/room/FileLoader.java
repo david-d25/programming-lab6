@@ -2,9 +2,6 @@ package ru.david.room;
 
 import java.io.*;
 import java.util.Arrays;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static ru.david.room.Utils.progressBar;
 
