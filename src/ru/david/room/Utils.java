@@ -9,9 +9,9 @@ public class Utils {
      * @param progress прогресс от 0 до 1
      * @return строка с красивой полосой прогресса
      */
-    public static String progressBar(float progress) {
-        return  "[" + Stream.generate(() ->  "=").limit((int)(25*progress)).collect(Collectors.joining()) + ">" +
-                Stream.generate(() -> " ").limit((int)(25*(1 - progress))).collect(Collectors.joining()) + "]" +
+    static String progressBar(float progress) {
+        return  "[" + Stream.generate(() ->  "=").limit(Math.round(25*progress)).collect(Collectors.joining()) + ">" +
+                Stream.generate(() -> " ").limit(Math.round(25*(1 - progress))).collect(Collectors.joining()) + "]" +
                 " " + Math.round(1000f * progress)/10f + "%\r";
     }
 
