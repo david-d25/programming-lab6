@@ -50,8 +50,6 @@ class RequestResolver implements Runnable {
             for (long loaded = 0; loaded < size; loaded++)
                 builder.append((char) clientIn.read());
 
-            pleaseWaitMessage.interrupt();
-
             String request = builder.toString();
 
             if (request.length() <= maxLoggableRequestSize)
