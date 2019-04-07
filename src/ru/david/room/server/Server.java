@@ -116,10 +116,10 @@ public class Server {
             } else
                 System.out.println("Используется имя файла стандартного вывода по умолчанию: " + outLogFile);
 
-            JSONEntity outErrFileEntity = object.getItem("out_err_file");
-            if (outErrFileEntity != null) {
-                outLogFile = outErrFileEntity.toString(
-                        "Имя файла вывода ошибок (out_err_file) должно быть строкой, но это " + outErrFileEntity.getTypeName()
+            JSONEntity errLogFileEntity = object.getItem("err_log_file");
+            if (errLogFileEntity != null) {
+                errLogFile = errLogFileEntity.toString(
+                        "Имя файла вывода ошибок (err_log_file) должно быть строкой, но это " + errLogFileEntity.getTypeName()
                 ).getContent();
                 System.out.println("Задано имя файла вывода ошибок: " + errLogFile);
             } else
