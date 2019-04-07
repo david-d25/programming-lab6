@@ -23,8 +23,6 @@ class RequestResolver implements Runnable {
     private Socket clientSocket;
     private Logger logger;
 
-    private volatile AtomicLong loadingProgress = new AtomicLong();
-
     RequestResolver(Socket clientSocket, Hoosegow hoosegow, Logger logger) {
         try {
             clientOut = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream(), StandardCharsets.UTF_8), true);
@@ -49,19 +47,7 @@ class RequestResolver implements Runnable {
                 return;
             }
 
-            Thread pleaseWaitMessage = new Thread(() -> {
-                try {
-                    Thread.sleep(500);
-                    while (loadingProgress.longValue() != size) {
-                        Thread.sleep(750);
-                        clientOut.print("Отправляем запрос... " + Math.round((1000f * loadingProgress.longValue() / size)/10) + "\r");
-                        clientOut.flush();
-                    }
-                } catch (InterruptedException ignored) {}
-            });
-            pleaseWaitMessage.start();
-
-            for (; loadingProgress.longValue() < size; loadingProgress.incrementAndGet())
+            for (long loaded = 0; loaded < size; loaded++)
                 builder.append((char) clientIn.read());
 
             pleaseWaitMessage.interrupt();
@@ -77,6 +63,7 @@ class RequestResolver implements Runnable {
 
         } catch (IOException e) {
             logger.err("Ошибка исполнения запроса: " + e.getMessage());
+            sendAndClose("На сервере произошла ошибка: " + e.getMessage());
         } catch (NumberFormatException e) {
             sendAndClose("Клиент отправил данные в неверном формате");
         }
@@ -87,8 +74,10 @@ class RequestResolver implements Runnable {
      * @param content данные, которые нужно отправить
      */
     private void sendAndClose(String content) {
-        clientOut.println(content);
-        clientOut.close();
+        if (content != null) {
+            clientOut.println(content);
+            clientOut.close();
+        }
     }
 
     /**
@@ -103,19 +92,23 @@ class RequestResolver implements Runnable {
         request = request.trim().replaceAll("\\s{2,}", " ");
         Command command = new Command(request);
 
-        StringBuilder result = new StringBuilder();
-
         switch (command.name) {
             case "info":
                 return hoosegow.getCollectionInfo();
 
             case "show":
-                if (hoosegow.getSize() == 0)
-                    return "Тюряга пуста, господин";
-                result.append("Существа в тюряге:\n");
-                for (Creature creature : hoosegow.getCollection())
-                    result.append(creature.toString()).append('\n');
-                return result.toString();
+                try (ObjectOutputStream oos = new ObjectOutputStream(clientSocket.getOutputStream())){
+                    if (hoosegow.getSize() == 0) {
+                        oos.writeObject("Нет тут никого, тюряга пуста, господин");
+                        oos.close();
+                    }
+
+                    for (Creature creature : hoosegow.getCollection())
+                        oos.writeObject(creature);
+                } catch (IOException e) {
+                    logger.log("Ошибка исполнения запроса show: " + e.getLocalizedMessage());
+                }
+                return null;
 
             case "save":
                 if (command.argument == null)
