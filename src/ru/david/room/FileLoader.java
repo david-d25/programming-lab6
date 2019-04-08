@@ -7,12 +7,13 @@ import static ru.david.room.Utils.progressBar;
 
 public class FileLoader {
     /**
-     * Читает файл, регулярно записывает прогресс в System.out
+     * Читает файл
      * @param filename имя файла
+     * @param showProgressBar если true, в System.out будет отправляться красивая полоса прогресса
      * @return содержимое в виде строки
      * @throws IOException если что-то пойдет не так
      */
-    public static String getFileContent(String filename) throws IOException {
+    public static String getFileContent(String filename, boolean showProgressBar) throws IOException {
         try (BufferedInputStream inputStream = new BufferedInputStream(new FileInputStream(filename));
              InputStreamReader reader = new InputStreamReader(inputStream)
         ) {
@@ -39,6 +40,16 @@ public class FileLoader {
 
             return fileContent.toString();
         }
+    }
+
+    /**
+     * Читает файл, регулярно записывает текущий прогресс в System.out
+     * @param filename имя файла
+     * @return содержимое в виде строки
+     * @throws IOException если что-то пойдет не так
+     */
+    public static String getFileContent(String filename) throws IOException {
+        return getFileContent(filename, true);
     }
 
     /**
