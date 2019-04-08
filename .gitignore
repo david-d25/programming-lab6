@@ -1,4 +1,4 @@
 build/
 .idea/
+logs/
 test_*.xml
-*.log
