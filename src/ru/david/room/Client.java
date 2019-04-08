@@ -13,6 +13,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.nio.file.AccessDeniedException;
 import java.util.LinkedList;
+import java.util.List;
 
 public class Client {
     private static final String CONFIG_FILENAME = "client-config.json";
@@ -42,6 +43,7 @@ public class Client {
             try {
                 System.out.print("> ");
                 String query = multiline ? getMultilineCommand(reader) : reader.readLine();
+                if (query == null) return;
                 String response = processCommand(query);
                 System.out.println(response);
             } catch (IOException e) {
@@ -57,9 +59,6 @@ public class Client {
      * @return результат операции для вывода на экран
      */
     private static String processCommand(String query) {
-        if (query == null)
-            System.exit(0);
-
         query = query.trim().replaceAll("\\s{2,}", " ");
         Command command = new Command(query);
 
@@ -82,34 +81,50 @@ public class Client {
                     return doImport(command.argument);
 
                 default:
-                    return sendCommand(query);
+                    return sendCommand(command.name, command.argument);
         }
     }
 
     /**
      * Выполняет команлу show, вывод отправляет в System.out
-     * @return пустую строку или сообщение об ошибке, если есть
+     * @return пустую строку или сообщение (возможно, об ошибке)
      */
     private static String doShow() {
         try (SocketChannel channel = SocketChannel.open()) {
             channel.connect(new InetSocketAddress(serverAddress, serverPort));
-            byte[] command = "show".getBytes();
 
-            ByteBuffer sendingBuffer = ByteBuffer.allocate(command.length + (command.length + "\n").getBytes().length);
-            sendingBuffer.put((command.length + "\n").getBytes());
-            sendingBuffer.put(command);
-            sendingBuffer.flip();
-            channel.write(sendingBuffer);
+            // Creating a Message instance and writing it to ByteArrayOutputStream
+            Message message = new Message("show", true);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            new ObjectOutputStream(baos).writeObject(message);
 
-            ObjectInputStream stream = new ObjectInputStream(channel.socket().getInputStream());
-            System.out.println("Существа в тюряге:");
+            // Sending the message to server using channel
+            ByteBuffer byteBuffer = ByteBuffer.allocate(baos.size());
+            byteBuffer.put(baos.toByteArray()).flip();
+            channel.write(byteBuffer);
+
+            ObjectInputStream ois = new ObjectInputStream(channel.socket().getInputStream());
+            List<Creature> result = new LinkedList<>();
+
+            // Reading the response
             while (!channel.socket().isClosed()) {
-                Object current = stream.readObject();
-                if (current instanceof String)
-                    System.out.println((String)current);
-                else if (current instanceof Creature)
-                    System.out.println(current.toString());
+                Message incoming = (Message)ois.readObject();
+                if (!incoming.hasArgument())
+                    break;
+                if (incoming.getArgument() instanceof Creature)
+                    result.add((Creature)incoming.getArgument());
+                else
+                    return "Сервер вернул данные в неверном формате";
+                if (incoming.hasEndFlag())
+                    break;
             }
+
+            // Writing the response to System.out
+            if (result.size() > 0) {
+                System.out.println("Существа с тюряге");
+                result.forEach(System.out::println);
+            } else
+                return "Тюряга пустая, господин";
             return "";
         } catch (UnknownHostException e) {
             return "Ошибка подключения к серверу: неизвестный хост";
@@ -134,8 +149,7 @@ public class Client {
     private static String doImport(String filename) {
         try {
             String content = FileLoader.getFileContent(filename);
-            sendCommand("import " + content);
-            return "";
+            return sendCommand("import", content);
         } catch (FileNotFoundException e) {
             return "Нет такого файла";
         } catch (AccessDeniedException e) {
@@ -146,36 +160,40 @@ public class Client {
     }
 
     /**
-     * Отправляет команду на сервер, результат отправляет в System.out
-     * @param command команда, которую нужно отправить
-     * @return пустую строку-заглушку.
+     * Отправляет команду на сервер, результат отправляет в System.out,
+     * использует каналы согласно условию задания
+     * @param name команда, которую нужно отправить
+     * @param argument аргумент команды
+     * @return пустую строку или сообщение об ошибке, если есть
      */
-    private static String sendCommand(String command) {
+    private static String sendCommand(String name, String argument) {
         try (SocketChannel channel = SocketChannel.open()) {
             channel.connect(new InetSocketAddress(serverAddress, serverPort));
 
-            ByteBuffer sendingBuffer = ByteBuffer.allocate(command.getBytes().length + (command.length() + "\n").getBytes().length);
-            sendingBuffer.put((command.length() + "\n").getBytes());
-            sendingBuffer.put(command.getBytes());
+            // Making a Message instance and writing it to ByteArrayOutputStream
+            Message<String> message = new Message<>(name, argument, true);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ObjectOutputStream oos = new ObjectOutputStream(baos);
+            oos.writeObject(message);
+
+            // Sending message using channel
+            ByteBuffer sendingBuffer = ByteBuffer.allocate(baos.size());
+            sendingBuffer.put(baos.toByteArray());
             sendingBuffer.flip();
             new Thread(() -> {
                 try {
                     channel.write(sendingBuffer);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                } catch (IOException ignored) {}
             }).start();
 
-            //import test_medium.xml
-
-            ByteBuffer receivingBuffer = ByteBuffer.allocate(256);
-            while (channel.read(receivingBuffer) > 0) {
-                receivingBuffer.flip();
-                while (receivingBuffer.hasRemaining())
-                    System.out.write(receivingBuffer.get());
-                receivingBuffer.rewind();
+            // Getting Message instance from response
+            ObjectInputStream ois = new ObjectInputStream(channel.socket().getInputStream());
+            while (true) {
+                Message incoming = (Message)ois.readObject();
+                System.out.println(incoming.getMessage());
+                if (incoming.hasEndFlag())
+                    break;
             }
-
             return "";
         } catch (UnknownHostException e) {
             return "Ошибка подключения к серверу: неизвестный хост";
@@ -185,6 +203,8 @@ public class Client {
             return "Не удалось соединиться с сервером, причина: " + e.getLocalizedMessage();
         } catch (IOException e) {
             return "Ошибка ввода-вывода: " + e;
+        } catch (ClassNotFoundException e) {
+            return "Ошибка: клиент отправил данные в недоступном для клиента формате (" + e.getLocalizedMessage() + ")";
         }
     }
 
