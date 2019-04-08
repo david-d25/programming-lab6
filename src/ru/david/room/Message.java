@@ -18,7 +18,7 @@ public class Message<T extends Serializable> implements Serializable {
      * @param argument объект-аргумент, прикреплённый к сообщению
      * @param endFlag флаг окончания
      */
-    Message(String message, T argument, boolean endFlag) {
+    public Message(String message, T argument, boolean endFlag) {
         this.message = message;
         this.argument = argument;
         this.endFlag = endFlag;
@@ -29,7 +29,7 @@ public class Message<T extends Serializable> implements Serializable {
      * @param message текстовый запрос
      * @param argument объект-аргумент, прикреплённый к сообщению
      */
-    Message(String message, T argument) {
+    public Message(String message, T argument) {
         this(message, argument, false);
     }
 
@@ -38,7 +38,7 @@ public class Message<T extends Serializable> implements Serializable {
      * @param message текстовый запрос
      * @param endFlag флаг окончания
      */
-    Message(String message, boolean endFlag) {
+    public Message(String message, boolean endFlag) {
         this(message, null, endFlag);
     }
 
@@ -46,7 +46,7 @@ public class Message<T extends Serializable> implements Serializable {
      * Создаёт сообщение с указанным текстовым запросом
      * @param message текствый запрос
      */
-    Message(String message) {
+    public Message(String message) {
         this(message, null, false);
     }
 
