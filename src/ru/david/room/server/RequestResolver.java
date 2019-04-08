@@ -8,26 +8,28 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
-import java.util.concurrent.atomic.AtomicLong;
-
-import static ru.david.room.CreatureFactory.makeCreatureFromJSON;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 class RequestResolver implements Runnable {
 
     private static long maxRequestSize = 268435456;
     private static long maxLoggableRequestSize = 128;
 
-    private PrintWriter clientOut;
-    private BufferedReader clientIn;
+    private ObjectOutputStream out;
+    private ObjectInputStream in;
+    private CountingInputStream countingStream;
     private Hoosegow hoosegow;
-    private Socket clientSocket;
+    private Socket socket;
     private Logger logger;
 
-    RequestResolver(Socket clientSocket, Hoosegow hoosegow, Logger logger) {
+    RequestResolver(Socket socket, Hoosegow hoosegow, Logger logger) {
         try {
-            clientOut = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream(), StandardCharsets.UTF_8), true);
-            clientIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            this.clientSocket = clientSocket;
+            out = new ObjectOutputStream(socket.getOutputStream());
+            countingStream = new CountingInputStream(socket.getInputStream());
+            in = new ObjectInputStream(countingStream);
+            this.socket = socket;
             this.hoosegow = hoosegow;
             this.logger = logger;
 
@@ -40,180 +42,258 @@ class RequestResolver implements Runnable {
     @Override
     public void run() {
         try {
-            StringBuilder builder = new StringBuilder();
-            long size = Long.parseLong(clientIn.readLine());
-            if (size > maxRequestSize) {
-                sendAndClose("Запрос слишком большой (" + Utils.optimalInfoUnit(size) + "), размер запроса не должен быть больше " + Utils.optimalInfoUnit(maxRequestSize));
-                return;
+            List<Message> messages = new LinkedList<>();
+            while (true) {
+                Object incoming = in.readObject();
+
+                if (countingStream.countedBytes() > maxRequestSize) {
+                    sendEndMessage("Запрос слишком большой (" + Utils.optimalInfoUnit(countingStream.countedBytes()) + "), размер запроса не должен быть больше " + Utils.optimalInfoUnit(maxRequestSize));
+                    return;
+                }
+
+                if (incoming instanceof Message) {
+                    messages.add((Message) incoming);
+                    if (((Message) incoming).hasEndFlag())
+                        break;
+                }
+                else {
+                    sendEndMessage("Клиент отправил данные в неверном формате");
+                    return;
+                }
             }
 
-            for (long loaded = 0; loaded < size; loaded++)
-                builder.append((char) clientIn.read());
+            if (messages.size() == 1) {
+                Message message = messages.get(0);
+                if (message.getMessage().length() <= maxLoggableRequestSize)
+                    logger.log("Запрос от " + socket.getInetAddress() + ": " + message.getMessage());
+                else
+                    logger.log("Запрос от " + socket.getInetAddress() + ", размер запроса: " + Utils.optimalInfoUnit(message.getMessage().length()));
 
-            String request = builder.toString();
-
-            if (request.length() <= maxLoggableRequestSize)
-                logger.log("Запрос от " + clientSocket.getInetAddress() + ": " + request);
-            else
-                logger.log("Запрос от " + clientSocket.getInetAddress() + ", размер запроса: " + Utils.optimalInfoUnit(request.length()));
-
-            sendAndClose(processRequest(request));
+                processMessage(message);
+            } else {
+                logger.log("Запрос из " + messages.size() + " сообщений от " + socket.getInetAddress());
+                for (int i = 0; i < messages.size(); i++)
+                    processMessage(messages.get(i), i+1 == messages.size());
+            }
 
         } catch (IOException e) {
             logger.err("Ошибка исполнения запроса: " + e.getMessage());
-            sendAndClose("На сервере произошла ошибка: " + e.getMessage());
-        } catch (NumberFormatException e) {
-            sendAndClose("Клиент отправил данные в неверном формате");
+            sendEndMessage("На сервере произошла ошибка: " + e.getMessage());
+        } catch (ClassNotFoundException e) {
+            sendEndMessage("Клиент отправил данные в неверном формате");
         }
     }
 
     /**
-     * Отправляет данные в поток вывода и закрывает поток
-     * @param content данные, которые нужно отправить
+     * Отправляет сообщение, отмеченное как последнее
+     * @param message текст сообщения
      */
-    private void sendAndClose(String content) {
-        if (content != null) {
-            clientOut.println(content);
-            clientOut.close();
+    private void sendEndMessage(String message) {
+        sendMessage(message, true);
+    }
+
+    /**
+     * Отправляет сообщение с указанным флагом окончания
+     * @param message текст сообщения
+     * @param endFlag флаг окончания
+     */
+    private void sendMessage(String message, boolean endFlag) {
+        try {
+            out.writeObject(new Message(message, endFlag));
+        } catch (IOException e) {
+            logger.log("Ошибка отправки данных клиенту: " + e.getLocalizedMessage());
         }
     }
 
     /**
-     * Обрабатывает запрос
-     * @param request запрос
-     * @return результат обработки
+     * Обрабатывает сообщение, отправляемый клиенту результат будет отмечен как последний
+     * @param message сообщение
      */
-    private String processRequest(String request) {
-        if (request == null)
-            return "Задан пустой запрос";
+    private void processMessage(Message message) {
+        processMessage(message, true);
+    }
 
-        request = request.trim().replaceAll("\\s{2,}", " ");
-        Command command = new Command(request);
+    /**
+     * Обрабатывает сообщение
+     * @param message сообщение
+     * @param endFlag если он true, результат обработки отправится клиенту как последний
+     */
+    private void processMessage(Message message, boolean endFlag) {
+        if (message == null) {
+            sendMessage("Задан пустой запрос", endFlag);
+            return;
+        }
 
-        switch (command.name) {
+        switch (message.getMessage()) {
             case "info":
-                return hoosegow.getCollectionInfo();
+                sendMessage(hoosegow.getCollectionInfo(), endFlag);
+                return;
 
             case "show":
-                try (ObjectOutputStream oos = new ObjectOutputStream(clientSocket.getOutputStream())){
-                    if (hoosegow.getSize() == 0) {
-                        oos.writeObject("Нет тут никого, тюряга пуста, господин");
-                        oos.close();
-                    }
-
-                    for (Creature creature : hoosegow.getCollection())
-                        oos.writeObject(creature);
+                try {
+                    for (Iterator<Creature> iterator = hoosegow.getCollection().iterator(); iterator.hasNext(); )
+                        out.writeObject(new Message<>("", iterator.next(), !iterator.hasNext()));
+                    if (hoosegow.getSize() == 0)
+                        out.writeObject(new Message<>("", null));
                 } catch (IOException e) {
                     logger.log("Ошибка исполнения запроса show: " + e.getLocalizedMessage());
                 }
-                return null;
+                return;
 
             case "save":
-                if (command.argument == null)
-                    return  "Имя не указано.\n" +
-                            "Введите \"help save\", чтобы узнать, как пользоваться командой";
+                if (!message.hasArgument()) {
+                    sendMessage("Имя не указано.\n" +
+                            "Введите \"help save\", чтобы узнать, как пользоваться командой", endFlag);
+                    return;
+                }
                 try {
-                    PleaseWaitMessage message = new PleaseWaitMessage(clientOut,
+                    if (!(message.getArgument() instanceof String)) {
+                        sendMessage("Клиент отправил запрос в неверном формате (аргумент сообщения должен быть строкой)", endFlag);
+                        return;
+                    }
+                    PleaseWaitMessage pleaseWaitMessage = new PleaseWaitMessage(out,
                             "Ваш запрос в процессе обработки. Пожалуйста, подождите...",
                             2000);
                     HoosegowStateController.saveState(
                             hoosegow,
-                            new OutputStreamWriter(new FileOutputStream(command.argument), StandardCharsets.UTF_8)
+                            new OutputStreamWriter(new FileOutputStream((String)message.getArgument()), StandardCharsets.UTF_8)
                     );
-                    message.clear();
-                    return "Сохранение успешно, господин";
+                    pleaseWaitMessage.clear();
+                    if (endFlag)
+                        sendMessage("Сохранение успешно, господин. В тюряге " + hoosegow.getSize() + " существ", true);
                 } catch (IOException e) {
-                    return "Ошибка чтения/записи";
+                    sendEndMessage("Ошибка чтения/записи");
                 }
+                return;
 
             case "load":
-                if (command.argument == null)
-                    return  "Имя не указано.\n" +
-                            "Введите \"help load\", чтобы узнать, как пользоваться командой";
+                if (!message.hasArgument()) {
+                    sendMessage("Имя не указано.\n" +
+                            "Введите \"help load\", чтобы узнать, как пользоваться командой", endFlag);
+                    return;
+                }
                 try {
-                    PleaseWaitMessage message = new PleaseWaitMessage(clientOut,
+                    if (!(message.getArgument() instanceof String)) {
+                        sendMessage("Клиент отправил запрос в неверном формате (аргумент сообщения должен быть строкой)", endFlag);
+                        return;
+                    }
+                    PleaseWaitMessage pleaseWaitMessage = new PleaseWaitMessage(out,
                             "Ваш запрос в процессе обработки. Пожалуйста, подождите...",
                             2000);
                     hoosegow.clear();
                     HoosegowStateController.loadState(
                             hoosegow,
-                            FileLoader.getFileContent(command.argument)
+                            FileLoader.getFileContent((String)message.getArgument(), false)
                     );
-                    message.clear();
-                    return "Загрузка успешна! В тюряге " + hoosegow.getSize() + " существ";
+                    pleaseWaitMessage.clear();
+                    sendMessage("Загрузка успешна! В тюряге " + hoosegow.getSize() + " существ", endFlag);
                 } catch (AccessDeniedException e) {
-                    return "Нет доступа для чтения";
+                    sendMessage("Нет доступа для чтения", endFlag);
                 } catch (FileNotFoundException e) {
-                    return "Файл не найден";
+                    sendMessage("Файл не найден", endFlag);
                 } catch (IOException e) {
-                    return "Ошибка чтения/записи";
+                    sendEndMessage("Ошибка чтения/записи");
                 } catch (SAXException | ParserConfigurationException e) {
-                    return "Ошибка обработки файла: " + e.getLocalizedMessage();
+                    sendMessage("Ошибка обработки файла: " + e.getLocalizedMessage(), endFlag);
                 } catch (HoosegowOverflowException e) {
-                    return "В тюряге не осталось места, некоторые существа загрузились";
+                    sendMessage("В тюряге не осталось места, некоторые существа загрузились", endFlag);
                 }
+                return;
 
             case "import":
-                if (command.argument == null)
-                    return  "Имя не указано.\n" +
-                            "Введите \"help import\", чтобы узнать, как пользоваться командой";
+                if (!message.hasArgument()) {
+                    sendMessage("Имя не указано.\n" +
+                            "Введите \"help import\", чтобы узнать, как пользоваться командой", endFlag);
+                    return;
+                }
                 try {
-                    PleaseWaitMessage message = new PleaseWaitMessage(clientOut,
+                    if (!(message.getArgument() instanceof String)) {
+                        sendMessage("Клиент отправил запрос в неверном формате (аргумент сообщения должен быть строкой)", endFlag);
+                        return;
+                    }
+                    PleaseWaitMessage pleaseWaitMessage = new PleaseWaitMessage(out,
                             "Ваш запрос в процессе обработки. Пожалуйста, подождите...",
                             2000);
                     HoosegowStateController.loadState(
                             hoosegow,
-                            command.argument
+                            (String)message.getArgument()
                     );
-                    message.clear();
-                    return "Загрузка успешна! В тюряге " + hoosegow.getSize() + " существ";
+                    pleaseWaitMessage.clear();
+                    sendMessage("Загрузка успешна! В тюряге " + hoosegow.getSize() + " существ", endFlag);
                 } catch (IOException e) {
-                    return "Ошибка чтения/записи";
+                    sendEndMessage("Ошибка чтения/записи");
                 } catch (SAXException | ParserConfigurationException e) {
-                    return "Ошибка обработки файла: " + e.getLocalizedMessage();
+                    sendMessage("Ошибка обработки файла: " + e.getLocalizedMessage(), endFlag);
                 } catch (HoosegowOverflowException e) {
-                    return "В тюряге не остмалось места, некоторые существа не загрузились";
+                    sendMessage("В тюряге не остмалось места, некоторые существа не загрузились", endFlag);
                 }
+                return;
 
             case "remove_last":
                 if (hoosegow.getSize() == 0)
-                    return "Тюряга пуста, господин";
-                return "Удалено это существо: " + hoosegow.removeLast();
+                    sendMessage("Тюряга пуста, господин", endFlag);
+                sendMessage("Удалено это существо: " + hoosegow.removeLast(), endFlag);
+                return;
 
             case "add":
                 try {
-                    if (command.argument == null)
-                        return helpFor(command.name);
-                    hoosegow.add(makeCreatureFromJSON(command.argument));
-                    return "Существо добавлено в тюрягу";
+                    if (!message.hasArgument()) {
+                        sendMessage(helpFor(message.getMessage()), endFlag);
+                        return;
+                    }
+                    if (!(message.getArgument() instanceof Creature)) {
+                        sendMessage("Клиент отправил данные в неверном формате (аргумент должен быть сериализованным объектом)", endFlag);
+                        return;
+                    }
+                    hoosegow.add((Creature)message.getArgument());
+                    sendMessage("Существо добавлено в тюрягу", endFlag);
+                    return;
                 } catch (HoosegowOverflowException e) {
-                    return  "Недостаточно места в тюряге. " +
+                    sendMessage("Недостаточно места в тюряге. " +
                             "В тюрягу может поместиться не больше " + Hoosegow.getMaxCollectionElements() + " существ.\n" +
-                            "Попробуйте удалить кого-то, чтобы освободить место.";
+                            "Попробуйте удалить кого-то, чтобы освободить место.", endFlag);
                 } catch (Exception e) {
-                    return "Не получилось создать существо: " + e.getMessage();
+                    sendMessage("Не получилось создать существо: " + e.getMessage(), endFlag);
                 }
+                return;
 
             case "remove_greater":
                 try {
-                    Creature creature = makeCreatureFromJSON(command.argument);
-                    return "Удалено " + hoosegow.removeGreaterThan(creature) + " существ";
+                    if (!message.hasArgument()) {
+                        sendMessage(helpFor(message.getMessage()), endFlag);
+                        return;
+                    }
+                    if (!(message.getArgument() instanceof Creature)) {
+                        sendMessage("Клиент отправил данные в неверном формате (аргумент должен быть сериализованным объектом)", endFlag);
+                        return;
+                    }
+                    Creature creature = (Creature)message.getArgument();
+                    sendMessage("Удалено " + hoosegow.removeGreaterThan(creature) + " существ", endFlag);
+                    return;
                 } catch (Exception e) {
-                    return e.getMessage();
+                    sendMessage(e.getMessage(), endFlag);
                 }
 
 
             case "remove":
                 try {
-                    if (command.argument == null)
-                        return helpFor(command.name);
-                    boolean removed = hoosegow.remove(makeCreatureFromJSON(command.argument));
+                    if (!message.hasArgument()) {
+                        sendMessage(helpFor(message.getMessage()), endFlag);
+                        return;
+                    }
+                    if (!(message.getArgument() instanceof Creature)) {
+                        sendMessage("Клиент отправил данные в неверном формате (аргумент должен быть сериализованным объектом)", endFlag);
+                        return;
+                    }
+                    boolean removed = hoosegow.remove((Creature)message.getArgument());
                     if (removed)
-                        return "Сущепство удалено, господин";
-                    return "Господин, такого существа не нашлось в тюряге";
+                        sendMessage("Сущепство удалено, господин", endFlag);
+                    else
+                        sendMessage("Господин, такого существа не нашлось в тюряге", endFlag);
                 } catch (Exception e) {
-                    return e.getMessage();
+                    sendMessage(e.getMessage(), endFlag);
                 }
+                return;
 
             case "?":
             case "help":
@@ -221,16 +301,24 @@ class RequestResolver implements Runnable {
             case "хелп":
             case "хэлб":
             case "хэлп":
+            case "хлеб":
+            case "чоита":
+            case "шоцетаке":
             case "помогите":
             case "памагити":
             case "напомощь":
-                if (command.argument == null)
-                    return helpFor("help");
-                else
-                    return helpFor(command.argument);
+                if (!message.hasArgument())
+                    sendMessage(helpFor("help"), endFlag);
+                else {
+                    if (message.getArgument() instanceof String)
+                        sendMessage(helpFor((String) message.getArgument()), endFlag);
+                    else
+                        sendMessage("Клент отправил данные в неверном формате (аргумент должен быть строкой)", endFlag);
+                }
+                return;
 
             default:
-                return "Не могу понять команду " + command.name + ", введите help, чтобы получить помощь";
+                sendMessage("Не могу понять команду " + message.getMessage() + ", введите help, чтобы получить помощь", endFlag);
         }
     }
 
