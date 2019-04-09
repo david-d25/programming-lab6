@@ -29,14 +29,16 @@ public class FileLoader {
                     }
                 } catch (InterruptedException ignored) {}
             });
-            loadingProgress.start();
+            if (showProgressBar)
+                loadingProgress.start();
             int current;
             do {
                 current = reader.read();
                 if (current != -1)
                     fileContent.append((char)current);
             } while (current != -1);
-            loadingProgress.interrupt();
+            if (showProgressBar)
+                loadingProgress.interrupt();
 
             return fileContent.toString();
         }
