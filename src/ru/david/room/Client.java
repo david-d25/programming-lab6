@@ -72,6 +72,11 @@ public class Client {
             case "show":
                 return doShow();
 
+            case "add":
+            case "remove":
+            case "remove_greater":
+                return doWithCreatureArgument(command.name, command.argument);
+
             case "multiline":
                 multiline = !multiline;
                 return "Многострочные команды " + (multiline ? "включены. Используйте ';' для завешения команды." : "выключены");
@@ -83,6 +88,66 @@ public class Client {
                 default:
                     return sendCommand(command.name, command.argument);
         }
+    }
+
+    /**
+     * Выполняет команду, аргумент которой является json-представлением экземпляра класса Creature
+     * @param command имя команжы
+     * @param jsonArgument аргумент команды
+     * @return результат выполнения
+     */
+    private static String doWithCreatureArgument(String command, String jsonArgument) {
+        try {
+            if (jsonArgument == null)
+                return sendCommand(command, null);
+            else {
+                Creature[] creatures;
+                try {
+                    creatures = CreatureFactory.generate(jsonArgument);
+                } catch (Exception e) {
+                    return e.getMessage();
+                }
+                try (SocketChannel channel = SocketChannel.open()) {
+                    channel.connect(new InetSocketAddress(serverAddress, serverPort));
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    ObjectOutputStream oos = new ObjectOutputStream(baos);
+
+                    for (int i = 0; i < creatures.length; i++) {
+                        // Making a Message instance and writing it to ByteArrayOutputStream
+                        Message message = new Message<>(command, creatures[i], i + 1 == creatures.length);
+                        oos.writeObject(message);
+                    }
+
+                    // Sending message using channel
+                    ByteBuffer sendingBuffer = ByteBuffer.allocate(baos.size());
+                    sendingBuffer.put(baos.toByteArray());
+                    sendingBuffer.flip();
+                    channel.write(sendingBuffer);
+
+                    // Getting response
+                    ObjectInputStream ois = new ObjectInputStream(channel.socket().getInputStream());
+                    while (true) {
+                        Message incoming = (Message) ois.readObject();
+                        System.out.println(incoming.getMessage());
+                        if (incoming.hasEndFlag())
+                            break;
+                    }
+                } catch (UnknownHostException e) {
+                    return "Ошибка подключения к серверу: неизвестный хост";
+                } catch (SecurityException e) {
+                    return "Нет разрешения на подключение";
+                } catch (ConnectException e) {
+                    return "Не удалось соединиться с сервером, причина: " + e.getLocalizedMessage();
+                } catch (IOException e) {
+                    return "Ошибка ввода-вывода: " + e;
+                } catch (ClassNotFoundException e) {
+                    return "Ошибка: клиент отправил данные в недоступном для клиента формате (" + e.getLocalizedMessage() + ")";
+                }
+            }
+        } catch (Exception e) {
+            return e.getMessage();
+        }
+        return "";
     }
 
     /**
@@ -166,12 +231,12 @@ public class Client {
      * @param argument аргумент команды
      * @return пустую строку или сообщение об ошибке, если есть
      */
-    private static String sendCommand(String name, String argument) {
+    private static String sendCommand(String name, Serializable argument) {
         try (SocketChannel channel = SocketChannel.open()) {
             channel.connect(new InetSocketAddress(serverAddress, serverPort));
 
             // Making a Message instance and writing it to ByteArrayOutputStream
-            Message<String> message = new Message<>(name, argument, true);
+            Message message = new Message<>(name, argument, true);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             ObjectOutputStream oos = new ObjectOutputStream(baos);
             oos.writeObject(message);
