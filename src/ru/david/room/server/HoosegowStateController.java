@@ -16,7 +16,7 @@ import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.util.Date;
 
-public class HoosegowStateController {
+class HoosegowStateController {
     /**
      * Загружает состояние тюряги из указанной строки. Строка должна содержать состояние в формате XML.
      * Обратите внимание, что имеющиеся существа не удаляются из тюряги.
@@ -26,7 +26,7 @@ public class HoosegowStateController {
      * @throws IOException Если произойдёт ошиька ввода-вывода
      * @throws SAXException Если произойдёт какая-то другая ошибка парсинга
      */
-    public static void loadState(Hoosegow hoosegow, String xml) throws ParserConfigurationException, IOException, SAXException {
+    static void loadState(Hoosegow hoosegow, String xml) throws ParserConfigurationException, IOException, SAXException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder;
 
@@ -139,7 +139,7 @@ public class HoosegowStateController {
      * @param writer поток, в который будет записано состояние в формате XML
      * @throws IOException если произойдёт ошибка чтения-записи
      */
-    public static void saveState(Hoosegow hoosegow, OutputStreamWriter writer) throws IOException {
+    static void saveState(Hoosegow hoosegow, OutputStreamWriter writer) throws IOException {
         writer.write("<?xml version=\"1.0\"?>\n");
         writer.write("<state>\n");
         writer.write("  <timestamp>" + hoosegow.getCreatedDate().getTime() + "</timestamp>\n");

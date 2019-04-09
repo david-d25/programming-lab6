@@ -8,20 +8,20 @@ public class Creature extends PhysicalObject implements Comparable<Creature> {
     private String name = "Безымянный";
     private Date createdDate = new Date();
 
-    Creature(int x, int y) {
+    public Creature(int x, int y) {
         super(x, y);
     }
 
-    Creature(int x, int y, String name) {
+    public Creature(int x, int y, String name) {
         super(x, y);
         this.name = name;
     }
 
-    Creature(int x, int y, int width, int height) {
+    public Creature(int x, int y, int width, int height) {
         super(x, y, width, height);
     }
 
-    Creature(int x, int y, int width, int height, String name) {
+    public Creature(int x, int y, int width, int height, String name) {
         super(x, y, width, height);
         this.name = name;
     }
@@ -54,7 +54,7 @@ public class Creature extends PhysicalObject implements Comparable<Creature> {
         );
     }
 
-    public int getCoolness() {
+    private int getCoolness() {
         return getX() + getY();
     }
 
