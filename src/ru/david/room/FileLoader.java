@@ -17,8 +17,9 @@ public class FileLoader {
         try (BufferedInputStream inputStream = new BufferedInputStream(new FileInputStream(filename));
              InputStreamReader reader = new InputStreamReader(inputStream)
         ) {
-            StringBuilder fileContent = new StringBuilder();
             long fileSize = new File(filename).length();
+            StringBuilder fileContent = new StringBuilder();
+
             Thread loadingProgress = new Thread(() -> {
                 try {
                     Thread.sleep(250);
@@ -31,12 +32,11 @@ public class FileLoader {
             });
             if (showProgressBar)
                 loadingProgress.start();
+
             int current;
-            do {
-                current = reader.read();
-                if (current != -1)
-                    fileContent.append((char)current);
-            } while (current != -1);
+            while ((current = reader.read()) != -1)
+                fileContent.append((char)current);
+
             if (showProgressBar)
                 loadingProgress.interrupt();
 
