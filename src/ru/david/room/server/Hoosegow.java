@@ -1,4 +1,6 @@
-package ru.david.room;
+package ru.david.room.server;
+
+import ru.david.room.Creature;
 
 import java.util.Date;
 import java.util.concurrent.PriorityBlockingQueue;
