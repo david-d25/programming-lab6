@@ -35,7 +35,7 @@ class RequestResolver implements Runnable {
 
             new Thread(this).start();
         } catch (IOException e) {
-            logger.err(e.getMessage());
+            logger.err("Ошибка создания решателя запроса: " + e.toString());
         }
     }
 
@@ -55,8 +55,7 @@ class RequestResolver implements Runnable {
                     messages.add((Message) incoming);
                     if (((Message) incoming).hasEndFlag())
                         break;
-                }
-                else {
+                } else {
                     sendEndMessage("Клиент отправил данные в неверном формате");
                     return;
                 }
@@ -245,8 +244,9 @@ class RequestResolver implements Runnable {
                         sendMessage("Клиент отправил данные в неверном формате (аргумент должен быть сериализованным объектом)", endFlag);
                         return;
                     }
-                    hoosegow.add((Creature)message.getArgument());
-                    sendMessage("Существо добавлено в тюрягу", endFlag);
+                    Creature creature = (Creature)message.getArgument();
+                    hoosegow.add(creature);
+                    sendMessage("Существо " + creature.getName() + " добавлено в тюрягу", endFlag);
                     return;
                 } catch (HoosegowOverflowException e) {
                     sendMessage("Недостаточно места в тюряге. " +
@@ -267,8 +267,7 @@ class RequestResolver implements Runnable {
                         sendMessage("Клиент отправил данные в неверном формате (аргумент должен быть сериализованным объектом)", endFlag);
                         return;
                     }
-                    Creature creature = (Creature)message.getArgument();
-                    sendMessage("Удалено " + hoosegow.removeGreaterThan(creature) + " существ", endFlag);
+                    sendMessage("Удалено " + hoosegow.removeGreaterThan((Creature)message.getArgument()) + " существ", endFlag);
                     return;
                 } catch (Exception e) {
                     sendMessage(e.getMessage(), endFlag);
@@ -368,9 +367,13 @@ class RequestResolver implements Runnable {
                         "width - число, необязательное, ширина существа\n" +
                         "height - число, необязательное, высота существа\n" +
                         "name - строка, необязательное, имя существа\n\n" +
+                        "Если вы хотите добавить сразу несколько существ, то можете вместо\n" +
+                        "json-объекта указать json-массив из объектов, каждый из которых будет\n" +
+                        "добавлен в коллекцию.\n\n" +
                         "Например:\n" +
                         "> add {\"x\": 12, \"y\": 34}\n" +
-                        "> add {\"x\": 42, \"y\": -53.1, \"width\": 12, \"name\": \"Стёпа\"}";
+                        "> add {\"x\": 42, \"y\": -53.1, \"width\": 12, \"name\": \"Стёпа\"}\n" +
+                        "> add [ {\"x\": 12, \"y\": 34}, {\"y\": 62, \"x\": 1, \"width\": 23} ]";
             case "remove_greater":
                 return  "Чтобы удалить все существа, превосходящие нужный, введите \"remove_greater\", а\n" +
                         "затем json-объект, описывающий существо, с которым будет выполняться сравнение\n" +
@@ -380,9 +383,13 @@ class RequestResolver implements Runnable {
                         "width - число, необязательное, ширина существа\n" +
                         "height - число, необязательное, высота существа\n" +
                         "name - строка, необязательное, имя существа\n\n" +
+                        "Если вы хотите удалить сразу несколько существ, то можете вместо\n" +
+                        "json-объекта указать json-массив из объектов, каждое существо будет\n" +
+                        "обработано по отдельности.\n\n" +
                         "Например:\n" +
-                        "> add {\"x\": 32, \"y\": 7}\n" +
-                        "> add {\"x\": -5, \"y\": 0.1, \"width\": 1, \"name\": \"Василий\"}";
+                        "> remove_greater {\"x\": 32, \"y\": 7}\n" +
+                        "> remove_greater {\"x\": -5, \"y\": 0.1, \"width\": 1, \"name\": \"Василий\"}\n" +
+                        "> remove_greater [ {\"x\": 12, \"y\": 34}, {\"y\": 62, \"x\": 1, \"width\": 23} ]";
             case "multiline":
                 return  "Переключает режим многострочного ввода. Если многострочный ввод выключен, введите \"multiline\",\n" +
                         "чтобы включить его. После того, как вы включили многострочный режим, ваши команды будут\n" +
@@ -415,9 +422,13 @@ class RequestResolver implements Runnable {
                         "width - число, ширина существа\n" +
                         "height - число, высота существа\n" +
                         "name - строка, имя существа\n\n" +
+                        "Если вы хотите удалить сразу несколько существ, то можете вместо\n" +
+                        "json-объекта указать json-массив из объектов, каждый из которых будет\n" +
+                        "удален из коллекции.\n\n" +
                         "Например:\n" +
                         "> remove {\"x\": 5, \"y\": 1}\n" +
-                        "> remove {\"x\": 65536, \"y\": 123214, \"height\": 203, \"name\": \"Пётр I\"}";
+                        "> remove {\"x\": 65536, \"y\": 123214, \"height\": 203, \"name\": \"Пётр I\"}\n" +
+                        "> remove [ {\"x\": 12, \"y\": 34}, {\"y\": 62, \"x\": 1, \"width\": 23} ]";
 
                 default:
                     return  "Неизвестная команда " + command + "\n" +
