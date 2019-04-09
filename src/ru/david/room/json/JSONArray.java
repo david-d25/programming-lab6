@@ -73,6 +73,13 @@ public class JSONArray extends JSONEntity {
     }
 
     /**
+     * @return размер массива
+     */
+    public int size() {
+        return items.size();
+    }
+
+    /**
      * Добавляет в массив элемент
      * @param entity элемент, который надо добавить
      */
