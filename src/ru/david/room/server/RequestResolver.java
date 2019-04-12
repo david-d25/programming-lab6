@@ -14,12 +14,11 @@ import java.util.List;
 
 class RequestResolver implements Runnable {
 
-    private static long maxRequestSize = 268435456;
+    private static int maxRequestSize = 268435456;
     private static long maxLoggableRequestSize = 128;
 
     private ObjectOutputStream out;
-    private ObjectInputStream in;
-    private CountingInputStream countingStream;
+    private ObjectInputStream ois;
     private Hoosegow hoosegow;
     private Socket socket;
     private Logger logger;
@@ -27,8 +26,9 @@ class RequestResolver implements Runnable {
     RequestResolver(Socket socket, Hoosegow hoosegow, Logger logger) {
         try {
             out = new ObjectOutputStream(socket.getOutputStream());
-            countingStream = new CountingInputStream(socket.getInputStream());
-            in = new ObjectInputStream(countingStream);
+            ois = new ObjectInputStream(
+                    new LimitedInputStream(socket.getInputStream(), maxRequestSize)
+            );
             this.socket = socket;
             this.hoosegow = hoosegow;
             this.logger = logger;
@@ -43,13 +43,9 @@ class RequestResolver implements Runnable {
     public void run() {
         try {
             List<Message> messages = new LinkedList<>();
-            while (true) {
-                Object incoming = in.readObject();
 
-                if (countingStream.countedBytes() > maxRequestSize) {
-                    sendEndMessage("Запрос слишком большой (" + Utils.optimalInfoUnit(countingStream.countedBytes()) + "), размер запроса не должен быть больше " + Utils.optimalInfoUnit(maxRequestSize));
-                    return;
-                }
+            while (true) {
+                Object incoming = ois.readObject();
 
                 if (incoming instanceof Message) {
                     messages.add((Message) incoming);
@@ -72,12 +68,18 @@ class RequestResolver implements Runnable {
             } else {
                 logger.log("Запрос из " + messages.size() + " сообщений от " + socket.getInetAddress());
                 for (int i = 0; i < messages.size(); i++)
-                    processMessage(messages.get(i), i+1 == messages.size());
+                    processMessage(messages.get(i), i + 1 == messages.size());
             }
 
+        } catch (LimitAchievedException e) {
+            logger.err("Клиент (" + socket.getInetAddress() + ") отправил слишком много данных, в запросе отказано");
+            sendEndMessage("Ваш запрос слишком большой, он должен быть не больше " + Utils.optimalInfoUnit(maxRequestSize));
+        } catch (EOFException e) {
+            logger.err("Сервер наткнулся на неожиданный конец");
+            sendEndMessage("Не удалось обработать ваш запрос: в ходе чтения запроса сервер наткнулся на неожиданный конец данных");
         } catch (IOException e) {
-            logger.err("Ошибка исполнения запроса: " + e.getMessage());
-            sendEndMessage("На сервере произошла ошибка: " + e.getMessage());
+            logger.err("Ошибка исполнения запроса: " + e.toString());
+            sendEndMessage("На сервере произошла ошибка: " + e.toString());
         } catch (ClassNotFoundException e) {
             sendEndMessage("Клиент отправил данные в неверном формате");
         }
@@ -317,7 +319,10 @@ class RequestResolver implements Runnable {
                 return;
 
             default:
-                sendMessage("Не могу понять команду " + message.getMessage() + ", введите help, чтобы получить помощь", endFlag);
+                if (message.getMessage().length() < 64)
+                    sendMessage("Не могу понять команду " + message.getMessage() + ", введите help, чтобы получить помощь", endFlag);
+                else
+                    sendMessage("Не могу понять эту большую команду, введите help, чтобы получить помощь", endFlag);
         }
     }
 
@@ -439,7 +444,7 @@ class RequestResolver implements Runnable {
     /**
      * @return Максимальный размер запроса в байтах
      */
-    static long getMaxRequestSize() {
+    static int getMaxRequestSize() {
         return maxRequestSize;
     }
 
@@ -447,7 +452,7 @@ class RequestResolver implements Runnable {
      * Задаёт максимальный размер запроса
      * @param maxRequestSize максимальный размер запроса в байтах
      */
-    static void setMaxRequestSize(long maxRequestSize) {
+    static void setMaxRequestSize(int maxRequestSize) {
         RequestResolver.maxRequestSize = maxRequestSize;
     }
 
