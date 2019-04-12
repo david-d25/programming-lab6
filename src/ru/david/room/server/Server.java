@@ -76,7 +76,7 @@ public class Server {
             JSONEntity maxRequestSizeEntity = object.getItem("max_request_size");
             if (maxRequestSizeEntity != null) {
                 RequestResolver.setMaxRequestSize(
-                        (long)maxRequestSizeEntity.toNumber(
+                        (int)maxRequestSizeEntity.toNumber(
                         "Макс. размер запроса (max_request_size) должен быть числом, но это " + maxRequestSizeEntity.getTypeName()
                         ).getValue()
                 );
@@ -138,7 +138,7 @@ public class Server {
                     System.out.println("Задан порт сервера: " + (int)port);
                 }
             } else
-                System.out.println("Используется порт сервера по умолчанию: " + (int)port);
+                System.out.println("Используется порт сервера по умолчанию: " + port);
 
             System.out.println();
 
