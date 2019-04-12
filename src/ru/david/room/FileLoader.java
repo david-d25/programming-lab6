@@ -14,9 +14,7 @@ public class FileLoader {
      * @throws IOException если что-то пойдет не так
      */
     public static String getFileContent(String filename, boolean showProgressBar) throws IOException {
-        try (BufferedInputStream inputStream = new BufferedInputStream(new FileInputStream(filename));
-             InputStreamReader reader = new InputStreamReader(inputStream)
-        ) {
+        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(filename)))) {
             long fileSize = new File(filename).length();
             StringBuilder fileContent = new StringBuilder();
 
@@ -33,9 +31,9 @@ public class FileLoader {
             if (showProgressBar)
                 loadingProgress.start();
 
-            int current;
-            while ((current = reader.read()) != -1)
-                fileContent.append((char)current);
+            String line;
+            while ((line = bufferedReader.readLine()) != null)
+                fileContent.append(line);
 
             if (showProgressBar)
                 loadingProgress.interrupt();
