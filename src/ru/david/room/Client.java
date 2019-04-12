@@ -221,6 +221,8 @@ public class Client {
             return "Нет доступа к файлу";
         } catch (IOException e) {
             return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
+        } catch (Exception e) {
+            return e.getMessage();
         }
     }
 
@@ -267,7 +269,7 @@ public class Client {
         } catch (ConnectException e) {
             return "Не удалось соединиться с сервером, причина: " + e.getLocalizedMessage();
         } catch (IOException e) {
-            return "Ошибка ввода-вывода: " + e;
+            return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
         } catch (ClassNotFoundException e) {
             return "Ошибка: клиент отправил данные в недоступном для клиента формате (" + e.getLocalizedMessage() + ")";
         }
