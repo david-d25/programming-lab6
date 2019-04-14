@@ -90,13 +90,13 @@ public class Creature extends PhysicalObject implements Comparable<Creature> {
      */
     @Override
     public String toString() {
-        return String.format("Существо по имени %s, координаты: (%s; %s), размер: %s x %s, создано %s",
-                name,
+        return String.format("Существо в точке (%s; %s), \tразмер: %s x %s, создано %s, имя: %s",
                 getX(),
                 getY(),
                 getWidth(),
                 getHeight(),
-                new SimpleDateFormat("hh:mm aa, dd.MM.yyyy").format(createdDate)
+                new SimpleDateFormat("hh:mm aa, dd.MM.yyyy").format(createdDate),
+                name
         );
     }
 
