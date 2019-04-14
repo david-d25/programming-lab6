@@ -4,6 +4,7 @@ import ru.david.room.json.JSONEntity;
 import ru.david.room.json.JSONNumber;
 import ru.david.room.json.JSONObject;
 import ru.david.room.json.JSONParser;
+import sun.net.ConnectionResetException;
 
 import java.io.*;
 import java.net.ConnectException;
@@ -11,6 +12,7 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.nio.channels.UnresolvedAddressException;
 import java.nio.file.AccessDeniedException;
 import java.util.LinkedList;
 import java.util.List;
@@ -21,7 +23,9 @@ public class Client {
     private static boolean multiline = false;
 
     private static String serverAddress = "localhost";
-    private static int serverPort = 0;
+    private static int serverPort = 8080;
+
+    private static Command previousCommand = null;
 
     public static void main(String[] args) {
         try {
@@ -65,12 +69,44 @@ public class Client {
         if (command.name.isEmpty())
             return "Введите команду";
 
+        if (previousCommand == null)
+            if (command.name.equals("again"))
+                return "again не должен быть первой командой. Введите help again, чтобы узнать больше";
+            else
+                previousCommand = command;
+        else if (command.name.equals("again"))
+            command = previousCommand;
+        else
+            previousCommand = command;
+
+
         switch (command.name) {
             case "exit":
                 System.exit(0);
 
             case "show":
                 return doShow();
+
+            case "address":
+                if (command.argument == null)
+                    return "Адрес сервера: " + serverAddress +
+                            "\nЧтобы изменить адрес, введите его после команды";
+                serverAddress = command.argument;
+                return "Установлен адрес " + serverAddress;
+            case "port":
+                if (command.argument == null)
+                    return "Порт: " + serverPort +
+                            "\nЧтобы изменить порт, введите его после команды";
+                int newPort;
+                try {
+                    newPort = Integer.parseInt(command.argument);
+                } catch (NumberFormatException e) {
+                    newPort = -1;
+                }
+                if (newPort < 1 || newPort > 65535)
+                    return "Порт должен быть числом от 1 до 65535";
+                serverPort = newPort;
+                return "Установлен порт " + serverPort;
 
             case "add":
             case "remove":
@@ -132,12 +168,14 @@ public class Client {
                         if (incoming.hasEndFlag())
                             break;
                     }
+                } catch (UnresolvedAddressException e) {
+                    return "Не удалось определить адрес сервера. Воспользуйтесь командой address, чтобы изменить адрес.";
                 } catch (UnknownHostException e) {
-                    return "Ошибка подключения к серверу: неизвестный хост";
+                    return "Ошибка подключения к серверу: неизвестный хост. Воспользуйтесь командой address, чтобы изменить адрес";
                 } catch (SecurityException e) {
-                    return "Нет разрешения на подключение";
+                    return "Нет разрешения на подключение, проверьте свои настройки безопасности";
                 } catch (ConnectException e) {
-                    return "Не удалось соединиться с сервером, причина: " + e.getLocalizedMessage();
+                    return "Нет соединения с сервером. Введите again, чтобы попытаться ещё раз, или измените адрес (команда address)";
                 } catch (IOException e) {
                     return "Ошибка ввода-вывода: " + e;
                 } catch (ClassNotFoundException e) {
@@ -191,12 +229,14 @@ public class Client {
             } else
                 return "Тюряга пустая, господин";
             return "";
+        } catch (UnresolvedAddressException e) {
+            return "Не удалось определить адрес сервера. Воспользуйтесь командой address, чтобы изменить адрес.";
         } catch (UnknownHostException e) {
-            return "Ошибка подключения к серверу: неизвестный хост";
+            return "Ошибка подключения к серверу: неизвестный хост. Воспользуйтесь командой address, чтобы изменить адрес";
         } catch (SecurityException e) {
-            return "Нет разрешения на подключение";
+            return "Нет разрешения на подключение, проверьте свои настройки безопасности";
         } catch (ConnectException e) {
-            return "Не удалось соединиться с сервером, причина: " + e.getLocalizedMessage();
+            return "Нет соединения с сервером. Введите again, чтобы попытаться ещё раз, или измените адрес (команда address)";
         } catch (EOFException e) {
             return "";
         } catch (IOException e) {
@@ -222,7 +262,7 @@ public class Client {
         } catch (IOException e) {
             return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
         } catch (Exception e) {
-            return e.getMessage();
+            return "Неизвестная ошибка: " + e.toString();
         }
     }
 
@@ -250,24 +290,29 @@ public class Client {
             new Thread(() -> {
                 try {
                     channel.write(sendingBuffer);
-                } catch (IOException ignored) {}
+                } catch (IOException ignored) {
+                }
             }).start();
 
             // Getting Message instance from response
             ObjectInputStream ois = new ObjectInputStream(channel.socket().getInputStream());
             while (true) {
-                Message incoming = (Message)ois.readObject();
+                Message incoming = (Message) ois.readObject();
                 System.out.println(incoming.getMessage());
                 if (incoming.hasEndFlag())
                     break;
             }
             return "";
+        } catch (UnresolvedAddressException e) {
+            return "Не удалось определить адрес сервера. Воспользуйтесь командой address, чтобы изменить адрес.";
         } catch (UnknownHostException e) {
-            return "Ошибка подключения к серверу: неизвестный хост";
+            return "Ошибка подключения к серверу: неизвестный хост. Воспользуйтесь командой address, чтобы изменить адрес";
         } catch (SecurityException e) {
-            return "Нет разрешения на подключение";
+            return "Нет разрешения на подключение, проверьте свои настройки безопасности";
         } catch (ConnectException e) {
-            return "Не удалось соединиться с сервером, причина: " + e.getLocalizedMessage();
+            return "Нет соединения с сервером. Введите again, чтобы попытаться ещё раз, или измените адрес (команда address)";
+        } catch (ConnectionResetException e) {
+            return "Соединение с сервером прервалось";
         } catch (IOException e) {
             return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
         } catch (ClassNotFoundException e) {
@@ -332,8 +377,8 @@ public class Client {
                 );
 
                 double port = number.getValue();
-                if (port < 0 || port > 65535)
-                    System.err.println("Порт должен быть целым числом от 0 до 65535");
+                if (port < 1 || port > 65535)
+                    System.err.println("Порт должен быть целым числом от 1 до 65535");
                 else {
                     serverPort = (int)port;
                     System.out.println("Задан порт: " + serverPort);
