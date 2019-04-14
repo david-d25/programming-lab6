@@ -3,3 +3,5 @@ build/
 logs/
 test_*.xml
 *.plantuml
+ClientApp.jar
+ServerApp.jar
