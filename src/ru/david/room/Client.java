@@ -4,7 +4,6 @@ import ru.david.room.json.JSONEntity;
 import ru.david.room.json.JSONNumber;
 import ru.david.room.json.JSONObject;
 import ru.david.room.json.JSONParser;
-import sun.net.ConnectionResetException;
 
 import java.io.*;
 import java.net.ConnectException;
@@ -311,8 +310,6 @@ public class Client {
             return "Нет разрешения на подключение, проверьте свои настройки безопасности";
         } catch (ConnectException e) {
             return "Нет соединения с сервером. Введите again, чтобы попытаться ещё раз, или измените адрес (команда address)";
-        } catch (ConnectionResetException e) {
-            return "Соединение с сервером прервалось";
         } catch (IOException e) {
             return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
         } catch (ClassNotFoundException e) {
