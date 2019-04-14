@@ -1,7 +1,7 @@
-build/
 .idea/
+build/
 logs/
+jars/
+saves/
 test_*.xml
 *.plantuml
-ClientApp.jar
-ServerApp.jar
