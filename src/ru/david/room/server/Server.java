@@ -21,6 +21,10 @@ public class Server {
     private static Logger logger;
 
     public static void main(String[] args) {
+        try {
+            System.setOut(new PrintStream(System.out, true, "UTF-8"));
+        } catch (UnsupportedEncodingException ignored) {}
+
         loadConfig();
 
         initLogger();
@@ -52,8 +56,8 @@ public class Server {
     private static void initLogger() {
         try {
             logger = new Logger(
-                    new PrintStream(new TeeOutputStream(System.out, new FileOutputStream(outLogFile))),
-                    new PrintStream(new TeeOutputStream(System.err, new FileOutputStream(errLogFile)))
+                    new PrintStream(new TeeOutputStream(System.out, new FileOutputStream(outLogFile)), true, "UTF-8"),
+                    new PrintStream(new TeeOutputStream(System.err, new FileOutputStream(errLogFile)), true, "UTF-8")
             );
         } catch (IOException e) {
             System.err.println("Ошибка записи логов: " + e.getLocalizedMessage());
