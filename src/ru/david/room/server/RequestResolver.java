@@ -8,9 +8,7 @@ import java.io.*;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 class RequestResolver implements Runnable {
 
@@ -132,8 +130,11 @@ class RequestResolver implements Runnable {
 
             case "show":
                 try {
-                    for (Iterator<Creature> iterator = hoosegow.getCollection().iterator(); iterator.hasNext(); )
-                        out.writeObject(new Message<>("", iterator.next(), !iterator.hasNext()));
+                    Creature[] creatures = new Creature[0];
+                    creatures = hoosegow.getCollection().toArray(creatures);
+                    Arrays.sort(creatures);
+                    for (int i = 0, creaturesLength = creatures.length; i < creaturesLength; i++)
+                        out.writeObject(new Message<>("", creatures[i], i+1 == creaturesLength));
                     if (hoosegow.getSize() == 0)
                         out.writeObject(new Message<>("", null));
                 } catch (IOException e) {
