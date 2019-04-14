@@ -17,8 +17,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class Client {
-    private static final String CONFIG_FILENAME = "client-config.json";
-
     private static boolean multiline = false;
 
     private static String serverAddress = "localhost";
@@ -33,12 +31,12 @@ public class Client {
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
-        System.out.println("Добро пожаловать, мой господин!");
-
-        loadConfig();
-
         if (args.length > 0)
-            System.out.println(doImport(args[0]));
+            loadConfig(args[0]);
+        else
+            System.out.println("Файл настроек не указан\n");
+
+        System.out.println("Добро пожаловать, мой господин!");
 
         System.out.println("Введите команду:\n");
 
@@ -259,7 +257,7 @@ public class Client {
         } catch (AccessDeniedException e) {
             return "Нет доступа к файлу";
         } catch (IOException e) {
-            return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
+            return "Ошибка ввода-вывода: " + e.getMessage();
         } catch (Exception e) {
             return "Неизвестная ошибка: " + e.toString();
         }
@@ -311,7 +309,7 @@ public class Client {
         } catch (ConnectException e) {
             return "Нет соединения с сервером. Введите again, чтобы попытаться ещё раз, или измените адрес (команда address)";
         } catch (IOException e) {
-            return "Ошибка ввода-вывода: " + e.getLocalizedMessage();
+            return "Ошибка ввода-вывода, обработка запроса прервана";
         } catch (ClassNotFoundException e) {
             return "Ошибка: клиент отправил данные в недоступном для клиента формате (" + e.getLocalizedMessage() + ")";
         }
@@ -339,11 +337,12 @@ public class Client {
 
     /**
      * Выполняет загрузку конфигурации клиента (адрес и порт сервера)
+     * @param configFilename файл конфигурации
      */
-    private static void loadConfig() {
+    private static void loadConfig(String configFilename) {
         System.out.println("Загрузка настроек...");
         try {
-            BufferedReader reader = new BufferedReader(new FileReader(CONFIG_FILENAME));
+            BufferedReader reader = new BufferedReader(new FileReader(configFilename));
             StringBuilder builder = new StringBuilder();
 
             while (reader.ready())
@@ -386,7 +385,7 @@ public class Client {
             System.out.println();
 
         } catch (FileNotFoundException e) {
-            System.out.println("Файл настроек не найден, для задания настроек используйте файл " + CONFIG_FILENAME);
+            System.out.println("Файл настроек не найден, для задания настроек используйте файл " + configFilename);
         } catch (IOException e) {
             System.err.println("Ошибка чтения файла настроек: " + e.getLocalizedMessage());
         } catch (Exception e) {
