@@ -3,5 +3,6 @@ build/
 logs/
 jars/
 saves/
+javadoc/
 test_*.xml
 *.plantuml
