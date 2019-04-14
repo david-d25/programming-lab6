@@ -163,7 +163,7 @@ class RequestResolver implements Runnable {
                     if (endFlag)
                         sendMessage("Сохранение успешно, господин. В тюряге " + hoosegow.getSize() + " существ", true);
                 } catch (IOException e) {
-                    sendEndMessage("Ошибка чтения/записи");
+                    sendEndMessage("На сервере произошла чтения/записи");
                 }
                 return;
 
@@ -193,7 +193,7 @@ class RequestResolver implements Runnable {
                 } catch (FileNotFoundException e) {
                     sendMessage("Файл не найден", endFlag);
                 } catch (IOException e) {
-                    sendEndMessage("Ошибка чтения/записи");
+                    sendEndMessage("На сервере произошла ошибка чтения/записи");
                 } catch (SAXException | ParserConfigurationException e) {
                     sendMessage("Ошибка обработки файла: " + e.getLocalizedMessage(), endFlag);
                 } catch (HoosegowOverflowException e) {
@@ -222,7 +222,7 @@ class RequestResolver implements Runnable {
                     pleaseWaitMessage.clear();
                     sendMessage("Загрузка успешна! В тюряге " + hoosegow.getSize() + " существ", endFlag);
                 } catch (IOException e) {
-                    sendEndMessage("Ошибка чтения/записи");
+                    sendEndMessage("На сервере произошла ошибка чтения/записи");
                 } catch (SAXException | ParserConfigurationException e) {
                     sendMessage("Ошибка обработки файла: " + e.getLocalizedMessage(), endFlag);
                 } catch (HoosegowOverflowException e) {
