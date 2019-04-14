@@ -12,7 +12,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 public class Server {
-    private static final String CONFIG_FILENAME = "server-config.json";
     private static String outLogFile = "out.log";
     private static String errLogFile = "err.log";
     private static int port = 8080;
@@ -25,7 +24,10 @@ public class Server {
             System.setOut(new PrintStream(System.out, true, "UTF-8"));
         } catch (UnsupportedEncodingException ignored) {}
 
-        loadConfig();
+        if (args.length > 0)
+            loadConfig(args[0]);
+        else
+            System.out.println("Файл настроек не указан\n");
 
         initLogger();
 
@@ -67,11 +69,12 @@ public class Server {
 
     /**
      * Загружает настройки сервера
+     * @param configFilename файл настроек
      */
-    private static void loadConfig() {
+    private static void loadConfig(String configFilename) {
         System.out.println("Загрузка настроек...");
         try {
-            String configContent = FileLoader.getFileContent(CONFIG_FILENAME);
+            String configContent = FileLoader.getFileContent(configFilename);
 
             JSONObject object = JSONParser.parse(configContent).toObject(
                     "Файл должен содержать json-объект"
@@ -147,7 +150,7 @@ public class Server {
             System.out.println();
 
         } catch (FileNotFoundException e) {
-            System.out.println("Файл настроек не найден, для задания настроек используйте файл " + CONFIG_FILENAME);
+            System.out.println("Файл настроек не найден, для задания настроек используйте файл " + configFilename);
         } catch (IOException e) {
             System.err.println("Ошибка чтения файла настроек: " + e.getLocalizedMessage());
         } catch (Exception e) {
