@@ -5,12 +5,12 @@ if [[ $1 = "18" ]]; then
   alias java=java18
 fi
 
-[[ -f "jars/ServerApp.jar" ]] &&
-(
+if [[ -f "jars/ServerApp.jar" ]]; then
   echo "Запуск сервера...";
   java -Xmx4g -XX:OnOutOfMemoryError="kill -9 %p; sh run-server.sh" -jar jars/ServerApp.jar config/server-config.json
-) ||
+else
   echo "Сначала соберите проект: выполните build.sh";
+fi
 
 if [[ $1 = "18" ]]; then
   unalias java
