@@ -4,6 +4,10 @@ sh clear.sh;
 mkdir build;
 mkdir jars;
 
+if [[ $1 = "18" ]]; then
+  alias javac=javac18
+fi
+
 (
   echo "Компиляция клиента...";
   javac -sourcepath src -d build src/ru/david/room/Client.java -encoding UTF-8
@@ -21,3 +25,7 @@ mkdir jars;
   echo "Чтобы запустить клиентское приложение, выполните run-client.sh";
   echo "Чтобы запустить серверное приложение, выполните run-server.sh";
 )
+
+if [[ $1 = "18" ]]; then
+  unalias javac
+fi
