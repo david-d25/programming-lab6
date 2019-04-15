@@ -7,7 +7,7 @@ fi
 
 if [[ -f "jars/ServerApp.jar" ]]; then
   echo "Запуск сервера...";
-  java -Xmx4g -XX:OnOutOfMemoryError="kill -9 %p; sh run-server.sh" -jar jars/ServerApp.jar config/server-config.json
+  java -Xmx2g -XX:OnOutOfMemoryError="kill -9 %p; sh run-server.sh" -jar jars/ServerApp.jar config/server-config.json
 else
   echo "Сначала соберите проект: выполните build.sh";
 fi

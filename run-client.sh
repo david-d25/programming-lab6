@@ -7,7 +7,7 @@ fi
 
 if [[ -f "jars/ClientApp.jar" ]]; then
   echo "Запуск клиента...";
-  java -Xmx4g -XX:OnOutOfMemoryError="kill -9 %p; sh run-client.sh" -jar jars/ClientApp.jar config/client-config.json
+  java -Xmx2g -XX:OnOutOfMemoryError="kill -9 %p; sh run-client.sh" -jar jars/ClientApp.jar config/client-config.json
 else
   echo "Сначала соберите проект: выполните build.sh";
 fi
