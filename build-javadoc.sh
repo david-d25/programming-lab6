@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+shopt -s expand_aliases
+
 echo "Generating javadoc...";
 
 if [[ $1 = "18" ]]; then

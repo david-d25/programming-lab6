@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+shopt -s expand_aliases
 
 if [[ $1 = "18" ]]; then
   alias java=java18

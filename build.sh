@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
+shopt -s expand_aliases
+
 sh clear.sh;
 
 mkdir build;
 mkdir jars;
 
-if [[ $1 = "18" ]]; then
-  alias javac=javac18
+if [[ $1 -eq "18" ]]; then
+  alias javac=javac18;
 fi
 
 (
@@ -27,5 +29,5 @@ fi
 )
 
 if [[ $1 = "18" ]]; then
-  unalias javac
+  unalias javac;
 fi
